@@ -15,11 +15,11 @@ target_include_directories(radix_partition PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Set radix fan-out
-target_compile_definitions(radix_partition
-    PRIVATE
-        NUM_RADIX_BITS=10
-        NUM_PASSES=2
-)
+#target_compile_definitions(radix_partition
+#    PRIVATE
+#        NUM_RADIX_BITS=10
+#        NUM_PASSES=2
+#)
 
 target_compile_options(radix_partition PRIVATE
     $<$<CONFIG:Release>:-O3 -march=native -DNDEBUG -mno-avx512f>

@@ -93,6 +93,22 @@ static void *alloc_aligned(size_t size) {
   return ret;
 }
 
+/**
+ * Find the maximum number of bins that achieves a target probability
+ * using binary search to solve: m * exp(-n/m) ≈ target_p
+ */
+static uint32_t findMaxBins(double n, double target_p, double eps) {
+  double low = 1, high = n, m = 0, p = 0;
+  for (int i = 0; i < 100; ++i) {
+    m = (low + high) / 2.0;
+    p = m * exp(-n / m);
+    if (fabs(p - target_p) < eps)
+      break;
+    (p > target_p) ? (high = m) : (low = m);
+  }
+  return ceil(m);
+}
+
 int64_t bucket_chaining_join_idx(const struct table_t *const R,
                                  const struct table_t *const S,
                                  struct table_t *const tmpR,
@@ -105,8 +121,10 @@ int64_t bucket_chaining_join_idx(const struct table_t *const R,
   const uint64_t numR = R->num_tuples;
   const uint64_t numS = S->num_tuples;
 
-  uint32_t N = ceil(numS * 0.08);
+  // uint32_t N = ceil(numS * 0.08);
+  uint32_t N = findMaxBins(numR, 0.001, 1e-6);
   PREV_POW_2(N);
+  // printf("(DISTRIBUTE)   numR=%lu,bins=%u\n", numR, N);
   const uint32_t MASK = (N - 1) << (NUM_RADIX_BITS);
 
   next = (int *)malloc(sizeof(int) * numR);

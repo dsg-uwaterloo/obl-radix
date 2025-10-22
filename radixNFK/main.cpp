@@ -38,6 +38,9 @@ extern "C" {
 // Global timer
 std::chrono::high_resolution_clock::time_point tStart;
 
+std::uint32_t L1_CACHE_SIZE = 1.1 * 1024 * 1024;
+std::uint32_t BLOCK_SIZE = 32;
+
 int main(int argc, char *argv[]) {
   printf("Set number of radix bits and passes for your workload in "
          "external/radix_partition/CMakeLists.txt.\n");
@@ -93,6 +96,16 @@ int main(int argc, char *argv[]) {
   auto slices_S = buildSlices(S.num_tuples, thrS);
 
   std::uint32_t m;
+
+  std::uint32_t num_radix_bits = static_cast<std::uint32_t>(
+      std::log2((R.num_tuples * BLOCK_SIZE) / L1_CACHE_SIZE));
+  std::uint32_t num_passes = (num_radix_bits > 5) ? 2 : 1;
+  printf("(EXCHANGE)   radix bits: %2u, passes: %u\n", num_radix_bits,
+         num_passes);
+
+#define NUM_RADIX_BITS num_radix_bits
+#define NUM_PASSES num_passes
+
 #ifndef PRE_SORTED
   extern size_t total_num_threads;
   total_num_threads = numThreads;
@@ -156,6 +169,20 @@ int main(int argc, char *argv[]) {
   std::memset(expandedR.tuples, 0, bytes);
   std::memset(expandedS.tuples, 0, bytes);
 
+#undef NUM_RADIX_BITS
+#undef NUM_PASSES
+
+  if (m < R.num_tuples) {
+    num_radix_bits =
+        static_cast<std::uint32_t>(std::log2((m * BLOCK_SIZE) / L1_CACHE_SIZE));
+    num_passes = (num_radix_bits > 5) ? 2 : 1;
+  }
+  printf("(DISTRIBUTE) radix bits: %2u, passes: %u\n", num_radix_bits,
+         num_passes);
+
+#define NUM_RADIX_BITS num_radix_bits
+#define NUM_PASSES num_passes
+
 #ifndef INSUFFICIENT_MEMORY
   std::vector<Slice> slices_mR =
       buildSlices(m, std::max<std::uint32_t>(1, numThreads / 2));
@@ -208,7 +235,8 @@ int main(int argc, char *argv[]) {
             << '\n';
   }
 
-  printf("Join result rows : %ld (written to join.txt)\n", expandedR.num_tuples);
+  printf("Join result rows : %ld (written to join.txt)\n",
+         expandedR.num_tuples);
 
   return 0;
 }
