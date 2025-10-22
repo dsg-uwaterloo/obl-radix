@@ -132,12 +132,12 @@ int main(int argc, char *argv[]) {
   std::uint32_t num_passes = (num_radix_bits > 5) ? 2 : 1;
   printf("(EXCHANGE)   radix bits: %2u, passes: %u\n", num_radix_bits,
          num_passes);
-  std::uint32_t N = findMaxBins(R.num_tuples / std::pow(2, NUM_RADIX_BITS));
-  printf("(EXCHANGE)   bins=%u\n", N);
+  std::uint32_t bins = findMaxBins(R.num_tuples / std::pow(2, NUM_RADIX_BITS));
+  printf("(EXCHANGE)   bins=%u\n", bins);
 
 #define NUM_RADIX_BITS num_radix_bits
 #define NUM_PASSES num_passes
-#define BINS N
+  // #define BINS N
 
 #ifndef PRE_SORTED
   extern size_t total_num_threads;
@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
   partitionR.join();
   partitionS.join();
 
-  RHO(&R, &S, numThreads);
+  RHO(&R, &S, numThreads, bins);
 
   std::thread processR([&] {
     backfillDummiesParallel(R, slices_R);
@@ -204,21 +204,21 @@ int main(int argc, char *argv[]) {
 
 #undef NUM_RADIX_BITS
 #undef NUM_PASSES
-#undef BINS
+  // #undef BINS
 
   if (m < R.num_tuples) {
     num_radix_bits =
         static_cast<std::uint32_t>(std::log2((m * BLOCK_SIZE) / L1_CACHE));
     num_passes = (num_radix_bits > 5) ? 2 : 1;
-    N = findMaxBins(m / std::pow(2, num_radix_bits));
+    bins = findMaxBins(m / std::pow(2, num_radix_bits));
   }
   printf("(DISTRIBUTE) radix bits: %2u, passes: %u\n", num_radix_bits,
          num_passes);
-  printf("(DISTRIBUTE) bins=%u\n", N);
+  printf("(DISTRIBUTE) bins=%u\n", bins);
 
 #define NUM_RADIX_BITS num_radix_bits
 #define NUM_PASSES num_passes
-#define BINS N
+  // #define BINS N
 
 #ifndef INSUFFICIENT_MEMORY
   std::vector<Slice> slices_mR =
@@ -229,17 +229,17 @@ int main(int argc, char *argv[]) {
 
   std::thread radixR([&] {
     if (m >= R.num_tuples) {
-      RHO_idx(&R, &idxTable, thrR, &expandedR, true);
+      RHO_idx(&R, &idxTable, thrR, &expandedR, true, bins);
     } else {
-      RHO_idx(&idxTable, &R, thrR, &expandedR, false);
+      RHO_idx(&idxTable, &R, thrR, &expandedR, false, bins);
     }
     carryForwardParallel(expandedR, slices_mR);
   });
   std::thread radixS([&] {
     if (m >= S.num_tuples) {
-      RHO_idx(&S, &idxTable, thrS, &expandedS, true);
+      RHO_idx(&S, &idxTable, thrS, &expandedS, true, bins);
     } else {
-      RHO_idx(&idxTable, &S, thrS, &expandedS, false);
+      RHO_idx(&idxTable, &S, thrS, &expandedS, false, bins);
     }
     carryForwardParallel(expandedS, slices_mS);
   });
@@ -265,12 +265,12 @@ int main(int argc, char *argv[]) {
 
   std::vector<JoinRec> joinResults;
   mergeExpandedParallel(expandedR, expandedS, numThreads, joinResults);
-  {
-    std::ofstream outER("join.txt");
-    for (const auto &j : joinResults)
-      outER << j.keyR << ' ' << j.payR << ' ' << j.keyS << ' ' << j.payS
-            << '\n';
-  }
+  // {
+  //   std::ofstream outER("join.txt");
+  //   for (const auto &j : joinResults)
+  //     outER << j.keyR << ' ' << j.payR << ' ' << j.keyS << ' ' << j.payS
+  //           << '\n';
+  // }
 
   printf("Join result rows : %ld (written to join.txt)\n",
          expandedR.num_tuples);

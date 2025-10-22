@@ -23,9 +23,9 @@
 #define NUM_PASSES 2
 #endif
 
-#ifndef BINS
-#define BINS 1024 
-#endif
+// #ifndef BINS
+// #define BINS 1024 
+// #endif
 
 /** number of probe items for prefetching: must be a power of 2 */
 #ifndef PROBE_BUFFER_SIZE

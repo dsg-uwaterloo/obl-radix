@@ -16,14 +16,14 @@
 
 // inspired from "bit twiddling hacks":
 // http://graphics.stanford.edu/~seander/bithacks.html
-// #define PREV_POW_2(V)                                                          \
-//   do {                                                                         \
-//     V |= V >> 1;                                                               \
-//     V |= V >> 2;                                                               \
-//     V |= V >> 4;                                                               \
-//     V |= V >> 8;                                                               \
-//     V |= V >> 16;                                                              \
-//     V = V - (V >> 1);                                                          \
+// #define PREV_POW_2(V) \
+//   do { \
+//     V |= V >> 1; \
+//     V |= V >> 2; \
+//     V |= V >> 4; \
+//     V |= V >> 8; \
+//     V |= V >> 16; \
+//     V = V - (V >> 1); \
 //   } while (0)
 
 typedef struct arg_t_radix arg_t_radix;
@@ -47,6 +47,7 @@ struct arg_t_radix {
 
   struct table_t *expanded_tbl;
   bool isIdxS;
+  int bins;
 
   uint64_t numR;
   uint64_t numS;
@@ -93,10 +94,10 @@ static void *alloc_aligned(size_t size) {
   return ret;
 }
 
-/**
- * Find the maximum number of bins that achieves a target probability
- * using binary search to solve: m * exp(-n/m) ≈ target_p
- */
+// /**
+//  * Find the maximum number of bins that achieves a target probability
+//  * using binary search to solve: m * exp(-n/m) ≈ target_p
+//  */
 // static uint32_t findMaxBins(double n, double target_p, double eps) {
 //   double low = 1, high = n, m = 0, p = 0;
 //   for (int i = 0; i < 100; ++i) {
@@ -113,7 +114,8 @@ int64_t bucket_chaining_join_idx(const struct table_t *const R,
                                  const struct table_t *const S,
                                  struct table_t *const tmpR,
                                  output_list_t **output,
-                                 struct table_t *expanded, bool isIdxS) {
+                                 struct table_t *expanded, bool isIdxS,
+                                 int bins) {
   (void)(tmpR);
   (void)(output);
 
@@ -122,18 +124,17 @@ int64_t bucket_chaining_join_idx(const struct table_t *const R,
   const uint64_t numS = S->num_tuples;
 
   // uint32_t N = ceil(numS * 0.08);
-  // uint32_t N = findMaxBins(numR, 0.001, 1e-6);
+  // uint32_t N = findMaxBins(numR, 0.01, 1e-6);
   // PREV_POW_2(N);
-  // printf("(DISTRIBUTE)   numR=%lu,bins=%u\n", numR, N);
+  printf("(DISTRIBUTE) bins=%u\n", bins);
+  // printf("NUM_RADIX_BITS=%u, NUM_PASSES=%u\n", NUM_RADIX_BITS, NUM_PASSES);
 
   // const uint32_t MASK = (N - 1) << (NUM_RADIX_BITS);
-  const uint32_t MASK = (BINS - 1) << (NUM_RADIX_BITS);
-
+  const uint32_t MASK = (bins - 1) << (NUM_RADIX_BITS);
 
   next = (int *)malloc(sizeof(int) * numR);
   // bucket = (int *)calloc(N, sizeof(int));
-  bucket = (int *)calloc(BINS, sizeof(int));
-
+  bucket = (int *)calloc(bins, sizeof(int));
 
   struct row_t *Rtuples = R->tuples;
   for (uint32_t i = 0; i < numR;) {
@@ -513,8 +514,9 @@ static void *prj_thread(void *param) {
     // /* do the actual join. join method differs for different algorithms,
     //    i.e. bucket chaining, histogram-based, histogram-based with simd &
     //    prefetching  */
-    results += args->join_function(&task->relR, &task->relS, &task->tmpR,
-                                   &output, args->expanded_tbl, args->isIdxS);
+    results +=
+        args->join_function(&task->relR, &task->relS, &task->tmpR, &output,
+                            args->expanded_tbl, args->isIdxS, args->bins);
     args->parts_processed++;
   }
 
@@ -538,7 +540,8 @@ static void *prj_thread(void *param) {
  */
 static result_t *join_init_run(struct table_t *relR, struct table_t *relS,
                                JoinFunctionIdx jf, int nthreads,
-                               struct table_t *expanded, bool isIdxS) {
+                               struct table_t *expanded, bool isIdxS,
+                               int bins) {
   int i, rv;
   pthread_t tid[nthreads];
   pthread_barrier_t barrier;
@@ -604,6 +607,7 @@ static result_t *join_init_run(struct table_t *relR, struct table_t *relS,
 
     args[i].expanded_tbl = expanded;
     args[i].isIdxS = isIdxS;
+    args[i].bins = bins;
 
     args[i].numR = (i == (nthreads - 1)) ? (relR->num_tuples - i * numperthr[0])
                                          : numperthr[0];
@@ -671,7 +675,7 @@ static result_t *join_init_run(struct table_t *relR, struct table_t *relS,
 }
 
 result_t *RHO_idx(struct table_t *relR, struct table_t *relS, int nthreads,
-                  struct table_t *expanded, bool isIdxS) {
+                  struct table_t *expanded, bool isIdxS, int bins) {
   return join_init_run(relR, relS, bucket_chaining_join_idx, nthreads, expanded,
-                       isIdxS);
+                       isIdxS, bins);
 }
