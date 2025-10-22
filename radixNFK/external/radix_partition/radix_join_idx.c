@@ -16,15 +16,15 @@
 
 // inspired from "bit twiddling hacks":
 // http://graphics.stanford.edu/~seander/bithacks.html
-#define PREV_POW_2(V)                                                          \
-  do {                                                                         \
-    V |= V >> 1;                                                               \
-    V |= V >> 2;                                                               \
-    V |= V >> 4;                                                               \
-    V |= V >> 8;                                                               \
-    V |= V >> 16;                                                              \
-    V = V - (V >> 1);                                                          \
-  } while (0)
+// #define PREV_POW_2(V)                                                          \
+//   do {                                                                         \
+//     V |= V >> 1;                                                               \
+//     V |= V >> 2;                                                               \
+//     V |= V >> 4;                                                               \
+//     V |= V >> 8;                                                               \
+//     V |= V >> 16;                                                              \
+//     V = V - (V >> 1);                                                          \
+//   } while (0)
 
 typedef struct arg_t_radix arg_t_radix;
 typedef struct part_t part_t;
@@ -97,17 +97,17 @@ static void *alloc_aligned(size_t size) {
  * Find the maximum number of bins that achieves a target probability
  * using binary search to solve: m * exp(-n/m) ≈ target_p
  */
-static uint32_t findMaxBins(double n, double target_p, double eps) {
-  double low = 1, high = n, m = 0, p = 0;
-  for (int i = 0; i < 100; ++i) {
-    m = (low + high) / 2.0;
-    p = m * exp(-n / m);
-    if (fabs(p - target_p) < eps)
-      break;
-    (p > target_p) ? (high = m) : (low = m);
-  }
-  return ceil(m);
-}
+// static uint32_t findMaxBins(double n, double target_p, double eps) {
+//   double low = 1, high = n, m = 0, p = 0;
+//   for (int i = 0; i < 100; ++i) {
+//     m = (low + high) / 2.0;
+//     p = m * exp(-n / m);
+//     if (fabs(p - target_p) < eps)
+//       break;
+//     (p > target_p) ? (high = m) : (low = m);
+//   }
+//   return ceil(m);
+// }
 
 int64_t bucket_chaining_join_idx(const struct table_t *const R,
                                  const struct table_t *const S,
@@ -122,13 +122,18 @@ int64_t bucket_chaining_join_idx(const struct table_t *const R,
   const uint64_t numS = S->num_tuples;
 
   // uint32_t N = ceil(numS * 0.08);
-  uint32_t N = findMaxBins(numR, 0.001, 1e-6);
-  PREV_POW_2(N);
+  // uint32_t N = findMaxBins(numR, 0.001, 1e-6);
+  // PREV_POW_2(N);
   // printf("(DISTRIBUTE)   numR=%lu,bins=%u\n", numR, N);
-  const uint32_t MASK = (N - 1) << (NUM_RADIX_BITS);
+
+  // const uint32_t MASK = (N - 1) << (NUM_RADIX_BITS);
+  const uint32_t MASK = (BINS - 1) << (NUM_RADIX_BITS);
+
 
   next = (int *)malloc(sizeof(int) * numR);
-  bucket = (int *)calloc(N, sizeof(int));
+  // bucket = (int *)calloc(N, sizeof(int));
+  bucket = (int *)calloc(BINS, sizeof(int));
+
 
   struct row_t *Rtuples = R->tuples;
   for (uint32_t i = 0; i < numR;) {

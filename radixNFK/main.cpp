@@ -5,11 +5,13 @@
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
+#include <stdint.h>
 #include <sys/mman.h>
 
 #include "align_table.h"
 #include "backfill_dummies.h"
 #include "carry_forward.h"
+#include "external/radix_partition/prj_params.h"
 #include "inputs.h"
 #include "merge.h"
 #include "parallel_counts.h"
@@ -38,8 +40,36 @@ extern "C" {
 // Global timer
 std::chrono::high_resolution_clock::time_point tStart;
 
-std::uint32_t L1_CACHE_SIZE = 1.1 * 1024 * 1024;
+std::uint32_t L1_CACHE = 1.1 * 1024 * 1024;
 std::uint32_t BLOCK_SIZE = 32;
+
+// inspired from "bit twiddling hacks":
+// http://graphics.stanford.edu/~seander/bithacks.html
+inline uint32_t prevPow2(uint32_t v) {
+  v |= v >> 1;
+  v |= v >> 2;
+  v |= v >> 4;
+  v |= v >> 8;
+  v |= v >> 16;
+  return v - (v >> 1);
+}
+
+/**
+ * Find the maximum number of bins that achieves a target probability
+ * using binary search to solve: m * exp(-n/m) ≈ target_p
+ */
+inline uint32_t findMaxBins(double n, double target_p = 0.001,
+                            double eps = 1e-6) {
+  double low = 1, high = n, m = 0, p = 0;
+  for (int i = 0; i < 100; ++i) {
+    m = (low + high) / 2.0;
+    p = m * std::exp(-n / m);
+    if (std::fabs(p - target_p) < eps)
+      break;
+    (p > target_p) ? (high = m) : (low = m);
+  }
+  return prevPow2(static_cast<uint32_t>(std::ceil(m)));
+}
 
 int main(int argc, char *argv[]) {
   printf("Set number of radix bits and passes for your workload in "
@@ -98,13 +128,16 @@ int main(int argc, char *argv[]) {
   std::uint32_t m;
 
   std::uint32_t num_radix_bits = static_cast<std::uint32_t>(
-      std::log2((R.num_tuples * BLOCK_SIZE) / L1_CACHE_SIZE));
+      std::log2((R.num_tuples * BLOCK_SIZE) / L1_CACHE));
   std::uint32_t num_passes = (num_radix_bits > 5) ? 2 : 1;
   printf("(EXCHANGE)   radix bits: %2u, passes: %u\n", num_radix_bits,
          num_passes);
+  std::uint32_t N = findMaxBins(R.num_tuples / std::pow(2, NUM_RADIX_BITS));
+  printf("(EXCHANGE)   bins=%u\n", N);
 
 #define NUM_RADIX_BITS num_radix_bits
 #define NUM_PASSES num_passes
+#define BINS N
 
 #ifndef PRE_SORTED
   extern size_t total_num_threads;
@@ -171,17 +204,21 @@ int main(int argc, char *argv[]) {
 
 #undef NUM_RADIX_BITS
 #undef NUM_PASSES
+#undef BINS
 
   if (m < R.num_tuples) {
     num_radix_bits =
-        static_cast<std::uint32_t>(std::log2((m * BLOCK_SIZE) / L1_CACHE_SIZE));
+        static_cast<std::uint32_t>(std::log2((m * BLOCK_SIZE) / L1_CACHE));
     num_passes = (num_radix_bits > 5) ? 2 : 1;
+    N = findMaxBins(m / std::pow(2, num_radix_bits));
   }
   printf("(DISTRIBUTE) radix bits: %2u, passes: %u\n", num_radix_bits,
          num_passes);
+  printf("(DISTRIBUTE) bins=%u\n", N);
 
 #define NUM_RADIX_BITS num_radix_bits
 #define NUM_PASSES num_passes
+#define BINS N
 
 #ifndef INSUFFICIENT_MEMORY
   std::vector<Slice> slices_mR =
