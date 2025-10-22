@@ -126,7 +126,7 @@ int64_t bucket_chaining_join_idx(const struct table_t *const R,
   // uint32_t N = ceil(numS * 0.08);
   // uint32_t N = findMaxBins(numR, 0.01, 1e-6);
   // PREV_POW_2(N);
-  printf("(DISTRIBUTE) bins=%u\n", bins);
+  // printf("(DISTRIBUTE) bins=%u\n", bins);
   // printf("NUM_RADIX_BITS=%u, NUM_PASSES=%u\n", NUM_RADIX_BITS, NUM_PASSES);
 
   // const uint32_t MASK = (N - 1) << (NUM_RADIX_BITS);

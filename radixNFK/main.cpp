@@ -40,8 +40,8 @@ extern "C" {
 // Global timer
 std::chrono::high_resolution_clock::time_point tStart;
 
-std::uint32_t L1_CACHE = 1.1 * 1024 * 1024;
-std::uint32_t BLOCK_SIZE = 32;
+// std::uint32_t L1_CACHE = 1.1 * 1024 * 1024;
+// std::uint32_t BLOCK_SIZE = 32;
 
 // inspired from "bit twiddling hacks":
 // http://graphics.stanford.edu/~seander/bithacks.html
@@ -127,16 +127,16 @@ int main(int argc, char *argv[]) {
 
   std::uint32_t m;
 
-  std::uint32_t num_radix_bits = static_cast<std::uint32_t>(
-      std::log2((R.num_tuples * BLOCK_SIZE) / L1_CACHE));
-  std::uint32_t num_passes = (num_radix_bits > 5) ? 2 : 1;
-  printf("(EXCHANGE)   radix bits: %2u, passes: %u\n", num_radix_bits,
-         num_passes);
+  // std::uint32_t num_radix_bits = static_cast<std::uint32_t>(
+  //     std::log2((R.num_tuples * BLOCK_SIZE) / L1_CACHE));
+  // std::uint32_t num_passes = (num_radix_bits > 5) ? 2 : 1;
+  // printf("(EXCHANGE)   radix bits: %2u, passes: %u\n", num_radix_bits,
+  //        num_passes);
   std::uint32_t bins = findMaxBins(R.num_tuples / std::pow(2, NUM_RADIX_BITS));
   printf("(EXCHANGE)   bins=%u\n", bins);
 
-#define NUM_RADIX_BITS num_radix_bits
-#define NUM_PASSES num_passes
+  // #define NUM_RADIX_BITS num_radix_bits
+  // #define NUM_PASSES num_passes
   // #define BINS N
 
 #ifndef PRE_SORTED
@@ -202,22 +202,23 @@ int main(int argc, char *argv[]) {
   std::memset(expandedR.tuples, 0, bytes);
   std::memset(expandedS.tuples, 0, bytes);
 
-#undef NUM_RADIX_BITS
-#undef NUM_PASSES
+  // #undef NUM_RADIX_BITS
+  // #undef NUM_PASSES
   // #undef BINS
 
   if (m < R.num_tuples) {
-    num_radix_bits =
-        static_cast<std::uint32_t>(std::log2((m * BLOCK_SIZE) / L1_CACHE));
-    num_passes = (num_radix_bits > 5) ? 2 : 1;
-    bins = findMaxBins(m / std::pow(2, num_radix_bits));
+    // num_radix_bits =
+    //     static_cast<std::uint32_t>(std::log2((m * BLOCK_SIZE) / L1_CACHE));
+    // num_passes = (num_radix_bits > 5) ? 2 : 1;
+    // bins = findMaxBins(m / std::pow(2, num_radix_bits));
+    bins = findMaxBins(m / std::pow(2, NUM_RADIX_BITS));
   }
-  printf("(DISTRIBUTE) radix bits: %2u, passes: %u\n", num_radix_bits,
-         num_passes);
+  // printf("(DISTRIBUTE) radix bits: %2u, passes: %u\n", num_radix_bits,
+  //        num_passes);
   printf("(DISTRIBUTE) bins=%u\n", bins);
 
-#define NUM_RADIX_BITS num_radix_bits
-#define NUM_PASSES num_passes
+  // #define NUM_RADIX_BITS num_radix_bits
+  // #define NUM_PASSES num_passes
   // #define BINS N
 
 #ifndef INSUFFICIENT_MEMORY

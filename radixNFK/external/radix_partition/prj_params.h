@@ -3,9 +3,9 @@
  * @author  Cagri Balkesen <cagri.balkesen@inf.ethz.ch>
  * @date    Tue May 22 14:03:52 2012
  * @version $Id: prj_params.h 3017 2012-12-07 10:56:20Z bcagri $
- * 
+ *
  * @brief  Constant parameters used by Parallel Radix Join implementations.
- * 
+ *
  */
 
 #ifndef PRJ_PARAMS_H
@@ -24,7 +24,7 @@
 #endif
 
 // #ifndef BINS
-// #define BINS 1024 
+// #define BINS 1024
 // #endif
 
 /** number of probe items for prefetching: must be a power of 2 */
@@ -32,15 +32,15 @@
 #define PROBE_BUFFER_SIZE 4
 #endif
 
-/** 
- * Whether to use software write-combining optimized partitioning, 
- * see --enable-optimized-part config option 
+/**
+ * Whether to use software write-combining optimized partitioning,
+ * see --enable-optimized-part config option
  */
 /* #define USE_SWWC_OPTIMIZED_PART 1 */
 
 /** @defgroup SystemParameters System Parameters
  *  Various system specific parameters such as cache/cache-line sizes,
- *  associativity, etc. 
+ *  associativity, etc.
  *  @{
  */
 
@@ -60,39 +60,38 @@
 #endif
 
 /** number of tuples fitting into L1 */
-#define L1_CACHE_TUPLES (L1_CACHE_SIZE/sizeof(struct row_t))
+#define L1_CACHE_TUPLES (L1_CACHE_SIZE / sizeof(struct row_t))
 
 /** thresholds for skewed partitions in 3-phase parallel join */
 #ifndef SKEW_HANDLING
-//#define SKEW_HANDLING 0
+// #define SKEW_HANDLING 0
 #endif
-#define THRESHOLD1(NTHR) (NTHR*L1_CACHE_TUPLES)
-#define THRESHOLD2(NTHR) (NTHR*NTHR*L1_CACHE_TUPLES)
+#define THRESHOLD1(NTHR) (NTHR * L1_CACHE_TUPLES)
+#define THRESHOLD2(NTHR) (NTHR * NTHR * L1_CACHE_TUPLES)
 
 /** }*/
 
-
 /** \internal some padding space is allocated for relations in order to
- *  avoid L1 conflict misses and PADDING_TUPLES is placed between 
+ *  avoid L1 conflict misses and PADDING_TUPLES is placed between
  *  partitions in pass-1 of partitioning and SMALL_PADDING_TUPLES is placed
- *  between partitions in pass-2 of partitioning. 3 is a magic number. 
+ *  between partitions in pass-2 of partitioning. 3 is a magic number.
  */
 
 /* num-parts at pass-1 */
-#define FANOUT_PASS1 (1 << (NUM_RADIX_BITS/NUM_PASSES))
+#define FANOUT_PASS1 (1 << (NUM_RADIX_BITS / NUM_PASSES))
 /* num-parts at pass-1 */
-#define FANOUT_PASS2 (1 << (NUM_RADIX_BITS-(NUM_RADIX_BITS/NUM_PASSES)))
+#define FANOUT_PASS2 (1 << (NUM_RADIX_BITS - (NUM_RADIX_BITS / NUM_PASSES)))
 
-/** 
+/**
  * Put an odd number of cache lines between partitions in pass-2:
  * Here we put 3 cache lines.
  */
-#define SMALL_PADDING_TUPLES (3 * CACHE_LINE_SIZE/sizeof(struct row_t))
-#define PADDING_TUPLES (SMALL_PADDING_TUPLES*(FANOUT_PASS2+1))
+#define SMALL_PADDING_TUPLES (3 * CACHE_LINE_SIZE / sizeof(struct row_t))
+#define PADDING_TUPLES (SMALL_PADDING_TUPLES * (FANOUT_PASS2 + 1))
 
 /** @warning This padding must be allocated at the end of relation */
 #ifndef RELATION_PADDING
-#define RELATION_PADDING (PADDING_TUPLES*FANOUT_PASS1*sizeof(struct row_t))
+#define RELATION_PADDING (PADDING_TUPLES * FANOUT_PASS1 * sizeof(struct row_t))
 #endif
 
 /** \endinternal */
