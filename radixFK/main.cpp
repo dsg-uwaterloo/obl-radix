@@ -66,9 +66,9 @@ findMaxBins(double n, double target_p = 0.001, double eps = 1e-6) {
 int main(int argc, char *argv[]) {
   printf("[INFO] Set number of radix bits and passes in the top-level "
          "CMakeLists.txt.\n");
-  printf("[INFO] R → Primary Key table; S → Foreign Key table.\n");
+  printf("[INFO] R: Primary Key table; S: Foreign Key table\n");
   std::uint32_t numThreads = 32;
-  std::string inputPath = "../../datasets/real/amazon.txt";
+  std::string inputPath = "../../datasets/real/imdb/imdb.txt";
 
   if (argc > 1)
     numThreads = std::max<std::uint32_t>(1, std::stoul(argv[1]));
@@ -112,6 +112,7 @@ int main(int argc, char *argv[]) {
 
   printf("\nRadix bits: %u, Passes: %u\n", NUM_RADIX_BITS, NUM_PASSES);
   std::uint32_t bins;
+
   double p;
   if (R.num_tuples <= S.num_tuples) {
     std::tie(bins, p) = findMaxBins(R.num_tuples / std::pow(2, NUM_RADIX_BITS));

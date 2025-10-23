@@ -74,8 +74,8 @@ findMaxBins(double n, double target_p = 0.001, double eps = 1e-6) {
 }
 
 int main(int argc, char *argv[]) {
-  printf(
-      "Set number of radix bits and passes in the top-level CMakeLists.txt.\n");
+  printf("[INFO] Set number of radix bits and passes in the top-level "
+         "CMakeLists.txt.\n");
   std::uint32_t numThreads = 32;
   std::string inputPath = "../../datasets/real/amazon.txt";
 

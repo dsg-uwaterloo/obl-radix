@@ -201,6 +201,11 @@ def compare_join_results(python_df, cpp_df):
     Returns True if they match, False otherwise
     """
     print("\n=== COMPARISON ===")
+
+    # Check result size
+    if len(python_df) != len(cpp_df):
+        print(f"❌ FAILURE: Result size mismatch")
+        return False
     
     # Select only the columns that matter for comparison
     python_compare = python_df[['keyR', 'keyS', 'payR', 'payS']].copy()
