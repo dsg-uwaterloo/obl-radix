@@ -25,14 +25,50 @@ extern "C" {
 
 // #define PRE_SORTED // use this if your tables are already sorted
 
-// Global timer
-std::chrono::high_resolution_clock::time_point tStart;
+// Global timers
+std::chrono::high_resolution_clock::time_point tStart, tEnd;
+
+// inspired from "bit twiddling hacks":
+// http://graphics.stanford.edu/~seander/bithacks.html
+inline uint32_t prevPow2(uint32_t v) {
+  v |= v >> 1;
+  v |= v >> 2;
+  v |= v >> 4;
+  v |= v >> 8;
+  v |= v >> 16;
+  return v - (v >> 1);
+}
+
+/**
+ * Find the maximum number of bins that achieves a target probability
+ * Lemma 1: m * exp(-n/m) ≈ target_p
+ */
+inline std::pair<std::uint32_t, double>
+findMaxBins(double n, double target_p = 0.001, double eps = 1e-6) {
+  int i;
+  double low = 1, high = n, m = 0, p = 0;
+  for (i = 0; i < 100; ++i) {
+    m = (low + high) / 2.0;
+    p = m * std::exp(-n / m);
+    if (std::fabs(p - target_p) < eps)
+      break;
+    (p > target_p) ? (high = m) : (low = m);
+  }
+
+  if (i == 100) {
+    std::cerr << "Lemma 1 unsatisfied. Reconfigure radix parameters."
+              << std::endl;
+  }
+
+  return {prevPow2(static_cast<std::uint32_t>(std::ceil(m))), p};
+}
 
 int main(int argc, char *argv[]) {
-  printf("Set number of radix bits and passes for your workload in "
-         "external/radix_partition/CMakeLists.txt.\n");
+  printf("[INFO] Set number of radix bits and passes in the top-level "
+         "CMakeLists.txt.\n");
+  printf("[INFO] R → Primary Key table; S → Foreign Key table.\n");
   std::uint32_t numThreads = 32;
-  std::string inputPath = "../amazon.txt";
+  std::string inputPath = "../../datasets/real/amazon.txt";
 
   if (argc > 1)
     numThreads = std::max<std::uint32_t>(1, std::stoul(argv[1]));
@@ -44,8 +80,8 @@ int main(int argc, char *argv[]) {
               << std::endl;
     return 1;
   }
-  printf("Input   : %s\n", inputPath.c_str());
-  printf("Threads : %u\n", numThreads);
+  printf("Input: %s\n", inputPath.c_str());
+  printf("Threads: %u\n", numThreads);
 
   std::vector<Record> t0, t1;
   if (!load_two_tables(inputPath, t0, t1))
@@ -74,6 +110,16 @@ int main(int argc, char *argv[]) {
   std::vector<int> lastLen(slices_S_numThreads.size()),
       mergeVal(slices_S_numThreads.size() - 1);
 
+  printf("\nRadix bits: %u, Passes: %u\n", NUM_RADIX_BITS, NUM_PASSES);
+  std::uint32_t bins;
+  double p;
+  if (R.num_tuples <= S.num_tuples) {
+    std::tie(bins, p) = findMaxBins(R.num_tuples / std::pow(2, NUM_RADIX_BITS));
+  } else {
+    std::tie(bins, p) = findMaxBins(S.num_tuples / std::pow(2, NUM_RADIX_BITS));
+  }
+  printf("(EXCHANGE)   Bins: %u, Lemma 1 p: %.4f\n", bins, p);
+
 #ifndef PRE_SORTED
   extern size_t total_num_threads;
   total_num_threads = numThreads;
@@ -99,9 +145,9 @@ int main(int argc, char *argv[]) {
   replaceWithDummiesParallel(S, slices_S_numThreads);
 
   if (S.num_tuples >= R.num_tuples) {
-    RHO(&R, &S, numThreads, false);
+    RHO(&R, &S, numThreads, false, bins);
   } else {
-    RHO(&S, &R, numThreads, true);
+    RHO(&S, &R, numThreads, true, bins);
   }
 
   backfillDummiesParallel(S, slices_S_numThreads);
@@ -118,14 +164,16 @@ int main(int argc, char *argv[]) {
   std::memset(expanded.tuples, 0, bytes);
   expanded.num_tuples = m;
 
-  if (m >= S.num_tuples) {
-    RHO_idx(&S, &idxTable, numThreads, &expanded, true);
-  } else {
-    RHO_idx(&idxTable, &S, numThreads, &expanded, false);
-  }
+  std::tie(bins, p) = findMaxBins(m / std::pow(2, NUM_RADIX_BITS));
+  RHO_idx(&idxTable, &S, numThreads, &expanded, bins);
 
   carryForwardParallel(expanded, slices_m);
 
+  printf("(DISTRIBUTE) Bins: %u, Lemma 1 p: %.4f\n", bins, p);
+  double sec =
+      std::chrono::duration_cast<std::chrono::duration<double>>(tEnd - tStart)
+          .count();
+  printf("\nJoin completed in %f s\n", sec);
   {
     std::ofstream outER("join.txt");
     for (int i = 0; i < expanded.num_tuples; i++) {
@@ -134,7 +182,7 @@ int main(int argc, char *argv[]) {
             << expanded.tuples[i].paySelf << '\n';
     }
   }
-  printf("Join result rows : %ld (written to join.txt)\n", expanded.num_tuples);
+  printf("Join result rows: %ld (written to join.txt)\n", expanded.num_tuples);
 
   return 0;
 }

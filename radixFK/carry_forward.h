@@ -8,7 +8,8 @@
 
 using std::vector;
 
-extern std::chrono::high_resolution_clock::time_point tStart;
+// Global timers defined in main.cpp
+extern std::chrono::high_resolution_clock::time_point tStart, tEnd;
 
 inline void carryForwardParallel(table_t &tbl,
                                  const std::vector<Slice> &slices) {
@@ -79,9 +80,6 @@ inline void carryForwardParallel(table_t &tbl,
 
   for (auto &th : pool)
     th.join();
-  auto end = std::chrono::high_resolution_clock::now();
-  double sec =
-      std::chrono::duration_cast<std::chrono::duration<double>>(end - tStart)
-          .count();
-  printf("\nJoin completed in %f s\n", sec);
+
+  tEnd = std::chrono::high_resolution_clock::now();
 }

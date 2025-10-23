@@ -45,6 +45,7 @@ struct arg_t_radix {
   struct row_t *tmpS2;
 
   bool isSPrimary;
+  int bins;
 
   uint64_t numR;
   uint64_t numS;
@@ -94,20 +95,16 @@ static void *alloc_aligned(size_t size) {
 int64_t bucket_chaining_join(const struct table_t *const R,
                              const struct table_t *const S,
                              struct table_t *const tmpR, output_list_t **output,
-                             bool isSPrimary) {
+                             bool isSPrimary, int bins) {
   (void)(tmpR);
   (void)(output);
 
   int *next, *bucket;
   const uint64_t numR = R->num_tuples;
   const uint64_t numS = S->num_tuples;
-
-  uint32_t N = ceil(numS * 0.08);
-  PREV_POW_2(N);
-  const uint32_t MASK = (N - 1) << (NUM_RADIX_BITS);
-
+  const uint32_t MASK = (bins - 1) << (NUM_RADIX_BITS);
   next = (int *)malloc(sizeof(int) * numR);
-  bucket = (int *)calloc(N, sizeof(int));
+  bucket = (int *)calloc(bins, sizeof(int));
 
   struct row_t *Rtuples = R->tuples;
   for (uint32_t i = 0; i < numR;) {
@@ -467,7 +464,7 @@ static void *prj_thread(void *param) {
     //    i.e. bucket chaining, histogram-based, histogram-based with simd &
     //    prefetching  */
     results += args->join_function(&task->relR, &task->relS, &task->tmpR,
-                                   &output, args->isSPrimary);
+                                   &output, args->isSPrimary, args->bins);
 
     /* Propagate changes back to original data using idx mapping */
     for (uint32_t i = 0; i < task->relR.num_tuples; i++) {
@@ -514,7 +511,8 @@ static void *prj_thread(void *param) {
  * histogram_optimized_join()
  */
 static result_t *join_init_run(struct table_t *relR, struct table_t *relS,
-                               JoinFunction jf, int nthreads, bool isSPrimary) {
+                               JoinFunction jf, int nthreads, bool isSPrimary,
+                               int bins) {
   int i, rv;
   pthread_t tid[nthreads];
   pthread_barrier_t barrier;
@@ -579,6 +577,7 @@ static result_t *join_init_run(struct table_t *relR, struct table_t *relS,
     args[i].tmpS2 = tmpRelS2;
 
     args[i].isSPrimary = isSPrimary;
+    args[i].bins = bins;
 
     args[i].numR = (i == (nthreads - 1)) ? (relR->num_tuples - i * numperthr[0])
                                          : numperthr[0];
@@ -646,6 +645,7 @@ static result_t *join_init_run(struct table_t *relR, struct table_t *relS,
 }
 
 result_t *RHO(struct table_t *relR, struct table_t *relS, int nthreads,
-              bool isSPrimary) {
-  return join_init_run(relR, relS, bucket_chaining_join, nthreads, isSPrimary);
+              bool isSPrimary, int bins) {
+  return join_init_run(relR, relS, bucket_chaining_join, nthreads, isSPrimary,
+                       bins);
 }

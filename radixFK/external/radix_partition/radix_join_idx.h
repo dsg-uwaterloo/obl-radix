@@ -9,9 +9,9 @@ typedef int64_t (*JoinFunctionIdx)(const struct table_t *const,
                                    const struct table_t *const,
                                    struct table_t *const,
                                    output_list_t **output,
-                                   struct table_t *expanded, bool isIdxS);
+                                   struct table_t *expanded, int bins);
 
 result_t *RHO_idx(struct table_t *relR, struct table_t *relS, int nthreads,
-                  struct table_t *expanded, bool isIdxS);
+                  struct table_t *expanded, int bins);
 
 #endif //_RADIX_JOIN_IDX_H_
