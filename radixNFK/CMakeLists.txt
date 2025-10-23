@@ -28,6 +28,11 @@ target_include_directories(OblRadix PRIVATE
     external/bitonic
     external/radix_partition)
 
+# Set radix fan-out
+target_compile_definitions(radix_partition PUBLIC 
+    NUM_RADIX_BITS=10
+    NUM_PASSES=2)
+
 # Link against all required libraries
 target_link_libraries(OblRadix PRIVATE 
     bitonic_rt 

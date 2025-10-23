@@ -5,13 +5,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
-#include <stdint.h>
 #include <sys/mman.h>
 
 #include "align_table.h"
 #include "backfill_dummies.h"
 #include "carry_forward.h"
-#include "external/radix_partition/prj_params.h"
 #include "inputs.h"
 #include "merge.h"
 #include "parallel_counts.h"
@@ -37,11 +35,8 @@ extern "C" {
  */
 // #define INSUFFICIENT_MEMORY
 
-// Global timer
-std::chrono::high_resolution_clock::time_point tStart;
-
-// std::uint32_t L1_CACHE = 1.1 * 1024 * 1024;
-// std::uint32_t BLOCK_SIZE = 32;
+// Global timers
+std::chrono::high_resolution_clock::time_point tStart, tEnd;
 
 // inspired from "bit twiddling hacks":
 // http://graphics.stanford.edu/~seander/bithacks.html
@@ -56,26 +51,33 @@ inline uint32_t prevPow2(uint32_t v) {
 
 /**
  * Find the maximum number of bins that achieves a target probability
- * using binary search to solve: m * exp(-n/m) ≈ target_p
+ * Lemma 1: m * exp(-n/m) ≈ target_p
  */
-inline uint32_t findMaxBins(double n, double target_p = 0.001,
-                            double eps = 1e-6) {
+inline std::pair<std::uint32_t, double>
+findMaxBins(double n, double target_p = 0.001, double eps = 1e-6) {
+  int i;
   double low = 1, high = n, m = 0, p = 0;
-  for (int i = 0; i < 100; ++i) {
+  for (i = 0; i < 100; ++i) {
     m = (low + high) / 2.0;
     p = m * std::exp(-n / m);
     if (std::fabs(p - target_p) < eps)
       break;
     (p > target_p) ? (high = m) : (low = m);
   }
-  return prevPow2(static_cast<uint32_t>(std::ceil(m)));
+
+  if (i == 100) {
+    std::cerr << "Lemma 1 unsatisfied. Reconfigure radix parameters."
+              << std::endl;
+  }
+
+  return {prevPow2(static_cast<std::uint32_t>(std::ceil(m))), p};
 }
 
 int main(int argc, char *argv[]) {
-  printf("Set number of radix bits and passes for your workload in "
-         "external/radix_partition/CMakeLists.txt.\n");
+  printf(
+      "Set number of radix bits and passes in the top-level CMakeLists.txt.\n");
   std::uint32_t numThreads = 32;
-  std::string inputPath = "../amazon.txt";
+  std::string inputPath = "../../datasets/real/amazon.txt";
 
   if (argc > 1)
     numThreads = std::max<std::uint32_t>(1, std::stoul(argv[1]));
@@ -87,8 +89,8 @@ int main(int argc, char *argv[]) {
               << std::endl;
     return 1;
   }
-  printf("Input   : %s\n", inputPath.c_str());
-  printf("Threads : %u\n", numThreads);
+  printf("Input: %s\n", inputPath.c_str());
+  printf("Threads: %u\n", numThreads);
 
   std::vector<Record> t0, t1;
   if (!load_two_tables(inputPath, t0, t1))
@@ -106,7 +108,7 @@ int main(int argc, char *argv[]) {
       1, ceil((static_cast<double>(t0.size()) / (t0.size() + t1.size())) *
               numThreads));
   std::uint32_t thrS = std::max<std::uint32_t>(1, numThreads - thrR);
-  printf("thrR: %u, thrS: %u\n", thrR, thrS);
+  printf("threads_R: %u, threads_S: %u\n", thrR, thrS);
 
   table_t R, S;
   R.tuples = new row_t[t0.size()];
@@ -127,17 +129,9 @@ int main(int argc, char *argv[]) {
 
   std::uint32_t m;
 
-  // std::uint32_t num_radix_bits = static_cast<std::uint32_t>(
-  //     std::log2((R.num_tuples * BLOCK_SIZE) / L1_CACHE));
-  // std::uint32_t num_passes = (num_radix_bits > 5) ? 2 : 1;
-  // printf("(EXCHANGE)   radix bits: %2u, passes: %u\n", num_radix_bits,
-  //        num_passes);
-  std::uint32_t bins = findMaxBins(R.num_tuples / std::pow(2, NUM_RADIX_BITS));
-  printf("(EXCHANGE)   bins=%u\n", bins);
-
-  // #define NUM_RADIX_BITS num_radix_bits
-  // #define NUM_PASSES num_passes
-  // #define BINS N
+  printf("\nRadix bits: %u, Passes: %u\n", NUM_RADIX_BITS, NUM_PASSES);
+  auto [bins, p] = findMaxBins(R.num_tuples / std::pow(2, NUM_RADIX_BITS));
+  printf("(EXCHANGE)   Bins: %u, Lemma 1 p: %.4f\n", bins, p);
 
 #ifndef PRE_SORTED
   extern size_t total_num_threads;
@@ -202,24 +196,9 @@ int main(int argc, char *argv[]) {
   std::memset(expandedR.tuples, 0, bytes);
   std::memset(expandedS.tuples, 0, bytes);
 
-  // #undef NUM_RADIX_BITS
-  // #undef NUM_PASSES
-  // #undef BINS
-
   if (m < R.num_tuples) {
-    // num_radix_bits =
-    //     static_cast<std::uint32_t>(std::log2((m * BLOCK_SIZE) / L1_CACHE));
-    // num_passes = (num_radix_bits > 5) ? 2 : 1;
-    // bins = findMaxBins(m / std::pow(2, num_radix_bits));
-    bins = findMaxBins(m / std::pow(2, NUM_RADIX_BITS));
+    std::tie(bins, p) = findMaxBins(m / std::pow(2, NUM_RADIX_BITS));
   }
-  // printf("(DISTRIBUTE) radix bits: %2u, passes: %u\n", num_radix_bits,
-  //        num_passes);
-  printf("(DISTRIBUTE) bins=%u\n", bins);
-
-  // #define NUM_RADIX_BITS num_radix_bits
-  // #define NUM_PASSES num_passes
-  // #define BINS N
 
 #ifndef INSUFFICIENT_MEMORY
   std::vector<Slice> slices_mR =
@@ -263,18 +242,21 @@ int main(int argc, char *argv[]) {
 #endif
 
   alignTableParallel(expandedS, slices_m, numThreads);
-
   std::vector<JoinRec> joinResults;
   mergeExpandedParallel(expandedR, expandedS, numThreads, joinResults);
-  // {
-  //   std::ofstream outER("join.txt");
-  //   for (const auto &j : joinResults)
-  //     outER << j.keyR << ' ' << j.payR << ' ' << j.keyS << ' ' << j.payS
-  //           << '\n';
-  // }
 
-  printf("Join result rows : %ld (written to join.txt)\n",
-         expandedR.num_tuples);
+  printf("(DISTRIBUTE) Bins: %u, Lemma 1 p: %.4f\n", bins, p);
+  double sec =
+      std::chrono::duration_cast<std::chrono::duration<double>>(tEnd - tStart)
+          .count();
+  printf("\nJoin completed in %f s\n", sec);
+  {
+    std::ofstream outER("join.txt");
+    for (const auto &j : joinResults)
+      outER << j.keyR << ' ' << j.payR << ' ' << j.keyS << ' ' << j.payS
+            << '\n';
+  }
+  printf("Join result rows: %ld (written to join.txt)\n", expandedR.num_tuples);
 
   return 0;
 }

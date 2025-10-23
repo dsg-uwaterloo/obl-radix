@@ -6,8 +6,8 @@
 #include <thread>
 #include <vector>
 
-// Global timer defined in main.cpp
-extern std::chrono::high_resolution_clock::time_point tStart;
+// Global timers defined in main.cpp
+extern std::chrono::high_resolution_clock::time_point tStart, tEnd;
 
 extern "C" {
 #include "bitonic.h"
@@ -117,14 +117,9 @@ inline void alignTableParallel(table_t &S, const std::vector<Slice> &slices,
   bitonic_sort_(reinterpret_cast<elem_t *>(S.tuples), true, 0, N, numThreads,
                 true);
 
-  auto end = std::chrono::high_resolution_clock::now();
-  double sec =
-      std::chrono::duration_cast<std::chrono::duration<double>>(end - tStart)
-          .count();
-  printf("\nJoin completed in %f s\n", sec);
+  tEnd = std::chrono::high_resolution_clock::now();
   thread_release_all();
   for (auto &t : pool)
     t.join();
-
   thread_system_cleanup();
 }
