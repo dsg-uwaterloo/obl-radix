@@ -6,28 +6,16 @@
 #include <fstream>
 #include <iostream>
 
-// #include "backfill_dummies.h"
-// #include "carry_forward.h"
 #include "generate_hash.h"
 #include "inputs.h"
-// #include "parallel_counts.h"
 #include "mark_expand.h"
-// #include "replace_dummies.h"
-// #include "result_indices.h"
 #include "oblivious_ops.h"
 #include "slice_utils.h"
 
 extern "C" {
-// #include "bitonic.h"
-// #include "oblivious_compact.h"
 #include "radix_join_counts.h"
-// #include "radix_join_idx.h"
-// #include "threading.h"
 }
 
-// #define PRE_SORTED // use this if your tables are already sorted
-
-// Global timers
 
 inline std::uint32_t prev_power_of_two(std::uint32_t n) {
   if (n <= 1)
@@ -68,10 +56,6 @@ static void printOutput(const char *label, const table_t &tbl) {
   }
 }
 
-// make R the smaller table
-// remove primary/foreign logic in RHO
-// live in compaction is the output result so we can end timer in
-// compactbycntexpand and print from there
 
 int main(int argc, char *argv[]) {
   std::chrono::high_resolution_clock::time_point tStart, tEnd;
@@ -79,7 +63,7 @@ int main(int argc, char *argv[]) {
          "CMakeLists.txt.\n");
   printf("[INFO] R: Primary Key table; S: Foreign Key table\n");
   std::uint32_t numThreads = 32;
-  std::string inputPath = "../../datasets/real/imdb/imdb.txt"; // UPDATEEEEEEEE
+  std::string inputPath = "../../datasets/real/imdb/imdb.txt"; // UPDATE
 
   if (argc > 1)
     numThreads = std::max<std::uint32_t>(1, std::stoul(argv[1]));
@@ -113,9 +97,6 @@ int main(int argc, char *argv[]) {
   R.tuples = new row_t[t0.size()];
   std::memcpy(R.tuples, t0.data(), t0.size() * sizeof(Record));
   R.num_tuples = static_cast<uint32_t>(t0.size());
-  // for (int i = 0; i < R.num_tuples; i++) {
-  //   R.tuples[i].cntSelf = 1;
-  // }
 
   S.tuples = new row_t[t1.size()];
   std::memcpy(S.tuples, t1.data(), t1.size() * sizeof(Record));
@@ -136,9 +117,6 @@ int main(int argc, char *argv[]) {
   auto slices_S_numThreads = buildSlices(S.num_tuples, thrS);
   auto slices_final = buildSlices(R.num_tuples, numThreads);
 
-  // std::vector<int> lastLen(slices_S_numThreads.size()),
-  //     mergeVal(slices_S_numThreads.size() - 1);
-
   printf("\nRadix bits: %u, Passes: %u\n", NUM_RADIX_BITS, NUM_PASSES);
   std::uint32_t bins;
 
@@ -150,70 +128,14 @@ int main(int argc, char *argv[]) {
   }
   printf("Bins: %u, Lemma 1 p: %.4f\n", bins, p);
 
-  // extern size_t total_num_threads;
-  // total_num_threads = numThreads;
-  std::vector<std::thread> pool;
-
-  // #ifndef PRE_SORTED
-  //   thread_system_init();
-  //   for (size_t i = 1; i < numThreads; ++i)
-  //     pool.emplace_back(thread_start_work);
-
-  //   tStart = std::chrono::high_resolution_clock::now();
-  //   bitonic_sort_(S.tuples, true, 0, S.num_tuples, numThreads, false);
-
-  //   thread_release_all();
-  //   for (auto &t : pool)
-  //     t.join();
-  //   thread_system_cleanup();
-  // #else
   tStart = std::chrono::high_resolution_clock::now();
-  // #endif
-
-  // parallelCounts(S, slices_S_numThreads, lastLen, mergeVal);
 
   std::thread hashR([&] { generateHashParallel(R, slices_R_numThreads); });
   std::thread hashS([&] { generateHashParallel(S, slices_S_numThreads); });
   hashR.join();
   hashS.join();
 
-  // generateHashParallel(R, slices_R_numThreads);
-  // generateHashParallel(S, slices_S_numThreads);
-
-  // replaceWithDummiesParallel(S, slices_S_numThreads);
-
-  // if (S.num_tuples >= R.num_tuples) {
-  //   RHO(&R, &S, numThreads, false, bins);
-  // } else {
-  //   RHO(&S, &R, numThreads, true, bins);
-  // }
-
   RHO(&R, &S, numThreads, bins);
-
-  //   auto compactByCntExpand = [&](table_t &tbl) -> uint32_t {
-  //     const uint32_t tupleCount = tbl.num_tuples;
-  //     if (tupleCount == 0)
-  //       return 0;
-
-  //     std::unique_ptr<bool[]> selected(new bool[tupleCount]);
-  //     uint32_t live = 0;
-
-  //     for (uint32_t i = 0; i < tupleCount; ++i) {
-  //       const bool keep = tbl.tuples[i].payPrimary[0] != 0;
-  //       selected[i] = keep;
-  //       live += static_cast<uint32_t>(keep);
-  //     }
-
-  //     oblivious_compact_elem(tbl.tuples, selected.get(), tupleCount, 1,
-  //                            numThreads);
-  //     tEnd = std::chrono::high_resolution_clock::now();
-
-  //   return live;
-  // };
-
-  // printOutput("R before compaction", R);
-
-  // std::uint32_t m = compactByCntExpand(R);
 
   auto selected = std::make_unique<bool[]>(R.num_tuples);
   std::uint32_t m = markExpandParallel(R, slices_final, selected.get());
@@ -221,26 +143,6 @@ int main(int argc, char *argv[]) {
     obli_compact_rows(R.tuples, selected.get(), R.num_tuples, numThreads);
   tEnd = std::chrono::high_resolution_clock::now();
 
-  // backfillDummiesParallel(S, slices_S_numThreads);
-  // std::uint32_t m = prefixSumExpandParallel(S, slices_S_numThreads);
-  // std::vector<Slice> slices_m = buildSlices(m, numThreads);
-  // const std::size_t bytes = m * sizeof(row_t);
-  // table_t idxTable{};
-  // idxTable.tuples = static_cast<row_t *>(aligned_alloc(32, bytes));
-  // idxTable.num_tuples = m;
-  // buildResultIndices(slices_m, idxTable);
-
-  // table_t expanded{};
-  // expanded.tuples = static_cast<row_t *>(aligned_alloc(32, bytes));
-  // std::memset(expanded.tuples, 0, bytes);
-  // expanded.num_tuples = m;
-
-  // std::tie(bins, p) = findMaxBins(m / std::pow(2, NUM_RADIX_BITS));
-  // RHO_idx(&idxTable, &S, numThreads, &expanded, bins);
-
-  // carryForwardParallel(expanded, slices_m);
-
-  // printf("(DISTRIBUTE) Bins: %u, Lemma 1 p: %.4f\n", bins, p);
   double sec =
       std::chrono::duration_cast<std::chrono::duration<double>>(tEnd - tStart)
           .count();
