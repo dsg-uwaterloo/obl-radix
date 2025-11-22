@@ -42,6 +42,9 @@ extern "C" {
 // Global timers
 std::chrono::high_resolution_clock::time_point tStart, tEnd;
 
+// Global secret used by triple32 hash (non-zero default seed)
+std::uint32_t SECRET = 0x9e3779b9U;
+
 inline std::uint32_t prev_power_of_two(std::uint32_t n) {
   if (n <= 1)
     return 1;

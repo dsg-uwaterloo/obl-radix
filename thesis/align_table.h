@@ -6,8 +6,8 @@
 #include <thread>
 #include <vector>
 
-// Global timers defined in main.cpp
-extern std::chrono::high_resolution_clock::time_point tStart, tEnd;
+// Global timer defined in main.cpp
+extern std::chrono::high_resolution_clock::time_point tEnd;
 
 extern "C" {
 #include "bitonic.h"
