@@ -10,16 +10,17 @@
 #include "carry_forward.h"
 #include "generate_hash_R.h"
 #include "inputs.h"
+#include "oblivious_ops.h"
 #include "parallel_counts.h"
 #include "prefix_sum_expand.h"
 #include "replace_dummies.h"
-#include "result_indices.h"
+// #include "result_indices.h"
 #include "slice_utils.h"
 
 extern "C" {
 #include "bitonic.h"
 #include "radix_join_counts.h"
-#include "radix_join_idx.h"
+// #include "radix_join_idx.h"
 #include "threading.h"
 }
 
@@ -28,15 +29,11 @@ extern "C" {
 // Global timers
 std::chrono::high_resolution_clock::time_point tStart, tEnd;
 
-// inspired from "bit twiddling hacks":
-// http://graphics.stanford.edu/~seander/bithacks.html
-inline uint32_t prevPow2(uint32_t v) {
-  v |= v >> 1;
-  v |= v >> 2;
-  v |= v >> 4;
-  v |= v >> 8;
-  v |= v >> 16;
-  return v - (v >> 1);
+inline std::uint32_t prev_power_of_two(std::uint32_t n) {
+  if (n <= 1)
+    return 1;
+  const unsigned leading = static_cast<unsigned>(__builtin_clz(n));
+  return 1u << (31u - leading);
 }
 
 /**
@@ -56,11 +53,19 @@ findMaxBins(double n, double target_p = 0.001, double eps = 1e-6) {
   }
 
   if (i == 100) {
-    std::cerr << "Lemma 1 unsatisfied. Reconfigure radix parameters."
+    std::cerr << "[WARNING] Lemma 1 unsatisfied. Reconfigure radix parameters."
               << std::endl;
   }
 
-  return {prevPow2(static_cast<std::uint32_t>(std::ceil(m))), p};
+  return {prev_power_of_two(static_cast<std::uint32_t>(std::ceil(m))), p};
+}
+
+static void printOutput(const char *label, const table_t &tbl) {
+  for (uint64_t i = 0; i < tbl.num_tuples; ++i) {
+    const row_t &rec = tbl.tuples[i];
+    printf("key=%u cntSelf=%u idx=%u hashKey=%u self=%s primary=%s\n", rec.key,
+           rec.cntSelf, rec.idx, rec.hashKey, rec.paySelf, rec.payPrimary);
+  }
 }
 
 int main(int argc, char *argv[]) {
@@ -110,6 +115,30 @@ int main(int argc, char *argv[]) {
   std::vector<int> lastLen(slices_S_numThreads.size()),
       mergeVal(slices_S_numThreads.size() - 1);
 
+  auto padTableToSize = [&](table_t &tbl, uint32_t target) {
+    // should this be parallelized?
+    if (tbl.num_tuples == target)
+      return;
+
+    row_t *expanded = new row_t[target];
+    const uint32_t copyCount = std::min<uint32_t>(tbl.num_tuples, target);
+    // if (copyCount > 0) {
+    std::memcpy(expanded, tbl.tuples, copyCount * sizeof(row_t));
+    // }
+
+    // uint32_t lastIdx = copyCount ? expanded[copyCount - 1].idx : 0;
+    // if (copyCount < target) {
+    //   row_t dummy{};
+    //   dummy.idx = UINT32_MAX;
+    //   dummy.cntExpand = 0;
+    //   std::fill(expanded + copyCount, expanded + target, dummy);
+    // }
+
+    delete[] tbl.tuples;
+    tbl.tuples = expanded;
+    tbl.num_tuples = target;
+  };
+
   printf("\nRadix bits: %u, Passes: %u\n", NUM_RADIX_BITS, NUM_PASSES);
   std::uint32_t bins;
 
@@ -119,7 +148,7 @@ int main(int argc, char *argv[]) {
   } else {
     std::tie(bins, p) = findMaxBins(S.num_tuples / std::pow(2, NUM_RADIX_BITS));
   }
-  printf("(EXCHANGE)   Bins: %u, Lemma 1 p: %.4f\n", bins, p);
+  printf("Bins: %u, Lemma 1 p: %.4f\n", bins, p);
 
 #ifndef PRE_SORTED
   extern size_t total_num_threads;
@@ -145,45 +174,52 @@ int main(int argc, char *argv[]) {
   generateHashParallel(R, slices_R_numThreads);
   replaceWithDummiesParallel(S, slices_S_numThreads);
 
+
   if (S.num_tuples >= R.num_tuples) {
     RHO(&R, &S, numThreads, false, bins);
   } else {
     RHO(&S, &R, numThreads, true, bins);
   }
 
+
   backfillDummiesParallel(S, slices_S_numThreads);
-  std::uint32_t m = prefixSumExpandParallel(S, slices_S_numThreads);
-  std::vector<Slice> slices_m = buildSlices(m, numThreads);
-  const std::size_t bytes = m * sizeof(row_t);
-  table_t idxTable{};
-  idxTable.tuples = static_cast<row_t *>(aligned_alloc(32, bytes));
-  idxTable.num_tuples = m;
-  buildResultIndices(slices_m, idxTable);
+  auto selected = std::make_unique<bool[]>(S.num_tuples);
+  std::uint32_t m = prefixSumExpandParallel(S, slices_S_numThreads, selected.get());
+  obli_compact_rows(S.tuples, selected.get(), S.num_tuples, numThreads);
 
-  table_t expanded{};
-  expanded.tuples = static_cast<row_t *>(aligned_alloc(32, bytes));
-  std::memset(expanded.tuples, 0, bytes);
-  expanded.num_tuples = m;
+  padTableToSize(S, m);
+  obli_distribute_rows(S.tuples, m, numThreads);
+  carryForwardParallel(S, buildSlices(m, numThreads));
 
-  std::tie(bins, p) = findMaxBins(m / std::pow(2, NUM_RADIX_BITS));
-  RHO_idx(&idxTable, &S, numThreads, &expanded, bins);
+  // const std::size_t bytes = m * sizeof(row_t);
+  // table_t idxTable{};
+  // idxTable.tuples = static_cast<row_t *>(aligned_alloc(32, bytes));
+  // idxTable.num_tuples = m;
+  // buildResultIndices(slices_m, idxTable);
 
-  carryForwardParallel(expanded, slices_m);
+  // table_t expanded{};
+  // expanded.tuples = static_cast<row_t *>(aligned_alloc(32, bytes));
+  // std::memset(expanded.tuples, 0, bytes);
+  // expanded.num_tuples = m;
 
-  printf("(DISTRIBUTE) Bins: %u, Lemma 1 p: %.4f\n", bins, p);
+  // std::tie(bins, p) = findMaxBins(m / std::pow(2, NUM_RADIX_BITS));
+  // RHO_idx(&idxTable, &S, numThreads, &expanded, bins);
+
+  // carryForwardParallel(expanded, slices_m);
+
+  // printf("(DISTRIBUTE) Bins: %u, Lemma 1 p: %.4f\n", bins, p);
   double sec =
       std::chrono::duration_cast<std::chrono::duration<double>>(tEnd - tStart)
           .count();
   printf("\nJoin completed in %f s\n", sec);
   {
     std::ofstream outER("join.txt");
-    for (int i = 0; i < expanded.num_tuples; i++) {
-      outER << expanded.tuples[i].key << ' ' << expanded.tuples[i].payPrimary
-            << ' ' << expanded.tuples[i].key << ' '
-            << expanded.tuples[i].paySelf << '\n';
+    for (int i = 0; i < m; i++) {
+      outER << S.tuples[i].key << ' ' << S.tuples[i].payPrimary << ' '
+            << S.tuples[i].key << ' ' << S.tuples[i].paySelf << '\n';
     }
   }
-  printf("Join result rows: %ld (written to join.txt)\n", expanded.num_tuples);
+  printf("Join result rows: %d (written to join.txt)\n", m);
 
   return 0;
 }

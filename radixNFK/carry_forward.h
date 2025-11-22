@@ -37,7 +37,7 @@ inline void carryForwardParallel(table_t &tbl,
         if (i + 16 < sl.end)
           _mm_prefetch(reinterpret_cast<const char *>(&tblTuples[i + 16]),
                        _MM_HINT_T0);
-        std::uint64_t isReal = -(tblTuples[i].cntSelf != 0);
+        std::uint64_t isReal = -(tblTuples[i].cntExpand != 0);
         maskedCopyRecord32(reinterpret_cast<const Record *>(&tblTuples[i]),
                            &cur, isReal);
       }
@@ -50,7 +50,7 @@ inline void carryForwardParallel(table_t &tbl,
   Record running{};
   for (int t = 0; t < P; ++t) {
     seed[t] = running;
-    std::uint64_t has = -(last[t].cntSelf != 0);
+    std::uint64_t has = -(last[t].cntExpand != 0);
     maskedCopyRecord32(reinterpret_cast<const Record *>(&last[t]), &running,
                        has);
   }
@@ -65,7 +65,7 @@ inline void carryForwardParallel(table_t &tbl,
         if (i + 16 < sl.end)
           _mm_prefetch(reinterpret_cast<const char *>(&tblTuples[i + 16]),
                        _MM_HINT_T0);
-        std::uint64_t isReal = -(tblTuples[i].cntSelf != 0);
+        std::uint64_t isReal = -(tblTuples[i].cntExpand != 0);
         maskedCopyRecord32(reinterpret_cast<const Record *>(&tblTuples[i]),
                            &cur, isReal);
         maskedCopyRecord32(&cur, reinterpret_cast<Record *>(&tblTuples[i]),

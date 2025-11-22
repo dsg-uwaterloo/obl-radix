@@ -8,7 +8,7 @@
 #include "slice_utils.h"
 // #include "triple32.h"
 
-inline uint64_t prefixSumExpandParallel(table_t &tbl,
+inline uint64_t markExpandParallel(table_t &tbl,
                                         const std::vector<Slice> &slices,
                                         bool *selected = nullptr) {
   const size_t N = tbl.num_tuples;
@@ -17,62 +17,64 @@ inline uint64_t prefixSumExpandParallel(table_t &tbl,
 
   const size_t P = slices.size();
 
-  std::vector<uint32_t> sliceSum(P, 0);
+  // std::vector<uint32_t> sliceSum(P, 0);
   std::vector<std::thread> pool;
   pool.reserve(P);
+  uint32_t m = 0;
 
   for (size_t t = 0; t < P; ++t) {
     pool.emplace_back([&, t] {
       const Slice sl = slices[t];
-      uint32_t run = 0;
 
       for (uint32_t i = sl.begin; i < sl.end; ++i) {
-        row_t &rec = tbl.tuples[i];
-        uint32_t cnt = rec.cntExpand;
-        const bool keep = (cnt != 0);
+        // row_t &rec = tbl.tuples[i];
+        // uint32_t cnt = tbl.tuples[i].cntExpand;
+        const bool keep = tbl.tuples[i].payPrimary[0] != 0;
         selected[i] = keep;
-        uint32_t mask = -static_cast<uint32_t>(keep);
+        // uint32_t mask = -static_cast<uint32_t>(keep);
 
-        uint32_t dummyVal = UINT32_MAX;
-        uint32_t idx0 = (mask & run) | (~mask & dummyVal);
+        // uint32_t dummyVal = UINT32_MAX;
+        // uint32_t idx0 = (mask & run) | (~mask & dummyVal);
 
-        rec.idx = idx0;
-        run += cnt;
+        // rec.idx = idx0;
+        // run += cnt;
+
+        m += static_cast<uint32_t>(keep);
       }
-      sliceSum[t] = run;
+      // sliceSum[t] = run;
     });
   }
   for (auto &th : pool)
     th.join();
 
-  std::vector<uint32_t> offset(P);
-  uint32_t running = 0;
-  for (size_t t = 0; t < P; ++t) {
-    offset[t] = running;
-    running += sliceSum[t];
-  }
+  // std::vector<uint32_t> offset(P);
+  // uint32_t running = 0;
+  // for (size_t t = 0; t < P; ++t) {
+  //   offset[t] = running;
+  //   running += sliceSum[t];
+  // }
 
-  pool.clear();
-  pool.reserve(P);
-  for (size_t t = 0; t < P; ++t) {
-    pool.emplace_back([&, t] {
-      const Slice sl = slices[t];
-      uint32_t off32 = offset[t];
+  // pool.clear();
+  // pool.reserve(P);
+  // for (size_t t = 0; t < P; ++t) {
+  //   pool.emplace_back([&, t] {
+  //     const Slice sl = slices[t];
+  //     uint32_t off32 = offset[t];
 
-      for (size_t i = sl.begin; i < sl.end; ++i) {
-        row_t &rec = tbl.tuples[i];
-        uint32_t cnt = rec.cntExpand;
-        uint32_t mask = -(cnt != 0);
+  //     for (size_t i = sl.begin; i < sl.end; ++i) {
+  //       row_t &rec = tbl.tuples[i];
+  //       uint32_t cnt = rec.cntExpand;
+  //       uint32_t mask = -(cnt != 0);
 
-        uint32_t newIdx = rec.idx + (mask & off32);
-        rec.idx = newIdx;
-      }
-    });
-  }
-  for (auto &th : pool)
-    th.join();
+  //       uint32_t newIdx = rec.idx + (mask & off32);
+  //       rec.idx = newIdx;
+  //     }
+  //   });
+  // }
+  // for (auto &th : pool)
+  //   th.join();
 
-  return running;
+  return m;
 }
 
 // #pragma once

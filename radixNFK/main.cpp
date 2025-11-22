@@ -4,7 +4,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <inttypes.h>
 #include <iostream>
+#include <memory>
 #include <sys/mman.h>
 
 #include "align_table.h"
@@ -12,16 +14,17 @@
 #include "carry_forward.h"
 #include "inputs.h"
 #include "merge.h"
+#include "oblivious_ops.h"
 #include "parallel_counts.h"
 #include "prefix_sum_expand.h"
 #include "replace_dummies.h"
-#include "result_indices.h"
+// #include "result_indices.h"
 #include "slice_utils.h"
 
 extern "C" {
 #include "bitonic.h"
 #include "radix_join_counts.h"
-#include "radix_join_idx.h"
+// #include "radix_join_idx.h"
 #include "threading.h"
 }
 
@@ -38,15 +41,11 @@ extern "C" {
 // Global timers
 std::chrono::high_resolution_clock::time_point tStart, tEnd;
 
-// inspired from "bit twiddling hacks":
-// http://graphics.stanford.edu/~seander/bithacks.html
-inline uint32_t prevPow2(uint32_t v) {
-  v |= v >> 1;
-  v |= v >> 2;
-  v |= v >> 4;
-  v |= v >> 8;
-  v |= v >> 16;
-  return v - (v >> 1);
+inline std::uint32_t prev_power_of_two(std::uint32_t n) {
+  if (n <= 1)
+    return 1;
+  const unsigned leading = static_cast<unsigned>(__builtin_clz(n));
+  return 1u << (31u - leading);
 }
 
 /**
@@ -66,11 +65,21 @@ findMaxBins(double n, double target_p = 0.001, double eps = 1e-6) {
   }
 
   if (i == 100) {
-    std::cerr << "Lemma 1 unsatisfied. Reconfigure radix parameters."
+    std::cerr << "[WARNING] Lemma 1 unsatisfied. Reconfigure radix parameters."
               << std::endl;
   }
 
-  return {prevPow2(static_cast<std::uint32_t>(std::ceil(m))), p};
+  return {prev_power_of_two(static_cast<std::uint32_t>(std::ceil(m))), p};
+}
+
+static void printOutput(const char *label, const table_t &tbl) {
+  printf("%s (num_tuples=%" PRIu64 ")\n", label,
+         static_cast<uint64_t>(tbl.num_tuples));
+  for (uint64_t i = 0; i < tbl.num_tuples; ++i) {
+    const row_t &rec = tbl.tuples[i];
+    printf("  [%" PRIu64 "] key=%u cntSelf=%u cntExpand=%u idx=%u hashKey=%u\n",
+           i, rec.key, rec.cntSelf, rec.cntExpand, rec.idx, rec.hashKey);
+  }
 }
 
 int main(int argc, char *argv[]) {
@@ -127,14 +136,37 @@ int main(int argc, char *argv[]) {
   auto slices_R = buildSlices(R.num_tuples, thrR);
   auto slices_S = buildSlices(S.num_tuples, thrS);
 
+  auto padTableToSize = [&](table_t &tbl, uint32_t target) {
+    // should this be parallelized?
+    if (tbl.num_tuples == target)
+      return;
+
+    row_t *expanded = new row_t[target];
+    const uint32_t copyCount = std::min<uint32_t>(tbl.num_tuples, target);
+    // if (copyCount > 0) {
+    std::memcpy(expanded, tbl.tuples, copyCount * sizeof(row_t));
+    // }
+
+    // uint32_t lastIdx = copyCount ? expanded[copyCount - 1].idx : 0;
+    if (copyCount < target) {
+      row_t dummy{};
+      dummy.idx = UINT32_MAX;
+      dummy.cntExpand = 0;
+      std::fill(expanded + copyCount, expanded + target, dummy);
+    }
+
+    delete[] tbl.tuples;
+    tbl.tuples = expanded;
+    tbl.num_tuples = target;
+  };
+
   std::uint32_t m;
 
   printf("\nRadix bits: %u, Passes: %u\n", NUM_RADIX_BITS, NUM_PASSES);
   auto [bins, p] = findMaxBins(R.num_tuples / std::pow(2, NUM_RADIX_BITS));
-  printf("(EXCHANGE)   Bins: %u, Lemma 1 p: %.4f\n", bins, p);
+  printf("Bins: %u, Lemma 1 p: %.4f\n", bins, p);
 
 #ifndef PRE_SORTED
-  extern size_t total_num_threads;
   total_num_threads = numThreads;
   thread_system_init();
 
@@ -170,82 +202,85 @@ int main(int argc, char *argv[]) {
   RHO(&R, &S, numThreads, bins);
 
   std::thread processR([&] {
+    // std::unique_ptr<bool[]> selected;
+    // // if (R.num_tuples > 0)
+    // selected.reset(new bool[R.num_tuples]);
     backfillDummiesParallel(R, slices_R);
-    m = prefixSumExpandParallel(R, slices_R);
+    auto selected = std::make_unique<bool[]>(R.num_tuples);
+    m = prefixSumExpandParallel(R, slices_R, selected.get());
+    // if (selected)
+    obli_compact_rows(R.tuples, selected.get(), R.num_tuples, thrR);
+    padTableToSize(R, m);
+    obli_distribute_rows(R.tuples, m, numThreads / 2);
+    carryForwardParallel(R, buildSlices(m, numThreads / 2));
   });
   std::thread processS([&] {
+    // std::unique_ptr<bool[]> selected;
+    // selected.reset(new bool[S.num_tuples]);
     backfillDummiesParallel(S, slices_S);
-    m = prefixSumExpandParallel(S, slices_S);
+    auto selected = std::make_unique<bool[]>(S.num_tuples);
+    m = prefixSumExpandParallel(S, slices_S, selected.get());
+    // if (selected)
+    obli_compact_rows(S.tuples, selected.get(), S.num_tuples, thrS);
+    padTableToSize(S, m);
+    obli_distribute_rows(S.tuples, m, numThreads / 2);
+    carryForwardParallel(S, buildSlices(m, numThreads / 2));
   });
   processR.join();
   processS.join();
 
+  // std::thread expandR([&] {
+  //   padTableToSize(R, m);
+  //   obli_distribute_rows(R.tuples, m, numThreads/2);
+  //   carryForwardParallel(R, buildSlices(m, numThreads/2));
+
+  // });
+  // std::thread expandS([&] {
+  //   padTableToSize(S, m);
+  //   obli_distribute_rows(S.tuples, m, numThreads/2);
+  //   carryForwardParallel(S, buildSlices(m, numThreads/2));
+  // });
+  // expandR.join();
+  // expandS.join();
+
+  // thread_system_init();
+  // pool.clear();
+  // for (size_t i = 1; i < numThreads; ++i)
+  //   pool.emplace_back(thread_start_work);
+
+  // compactByCntExpand(R);
+  // m = prefixSumExpandParallel(R, slices_R);
+  // compactByCntExpand(S);
+  // m = prefixSumExpandParallel(S, slices_S);
+
+  // printOutput("R after compaction", R);
+  // printOutput("S after compaction", S);
+
+  // call distribute here
+  // obli_distribute_rows(S.tuples, m, numThreads);
+
+  // printOutput("R after distribution", R);
+  // printOutput("S after distribution", S);
+
+  // thread_release_all();
+  // for (auto &t : pool)
+  //   t.join();
+  // thread_system_cleanup();
+
   std::vector<Slice> slices_m = buildSlices(m, numThreads);
+  // std::vector<Slice> slices_mR =
+  //     buildSlices(m, std::max<std::uint32_t>(1, numThreads / 2));
+  // std::vector<Slice> slices_mS = buildSlices(
+  //     m, std::max<std::uint32_t>(
+  //            1, numThreads - (std::max<std::uint32_t>(1, numThreads / 2))));
 
-  const std::size_t bytes = m * sizeof(row_t);
-  table_t idxTable{};
-  idxTable.tuples = static_cast<row_t *>(aligned_alloc(32, bytes));
-  idxTable.num_tuples = m;
-  buildResultIndices(slices_m, idxTable);
+  // carryForwardParallel(R, slices_mR);
+  // carryForwardParallel(S, slices_mS);
 
-  table_t expandedR{}, expandedS{};
-  expandedR.num_tuples = m;
-  expandedS.num_tuples = m;
-  expandedR.tuples = static_cast<row_t *>(std::aligned_alloc(32, bytes));
-  expandedS.tuples = static_cast<row_t *>(std::aligned_alloc(32, bytes));
-  std::memset(expandedR.tuples, 0, bytes);
-  std::memset(expandedS.tuples, 0, bytes);
-
-  if (m < R.num_tuples) {
-    std::tie(bins, p) = findMaxBins(m / std::pow(2, NUM_RADIX_BITS));
-  }
-
-#ifndef INSUFFICIENT_MEMORY
-  std::vector<Slice> slices_mR =
-      buildSlices(m, std::max<std::uint32_t>(1, numThreads / 2));
-  std::vector<Slice> slices_mS = buildSlices(
-      m, std::max<std::uint32_t>(
-             1, numThreads - (std::max<std::uint32_t>(1, numThreads / 2))));
-
-  std::thread radixR([&] {
-    if (m >= R.num_tuples) {
-      RHO_idx(&R, &idxTable, thrR, &expandedR, true, bins);
-    } else {
-      RHO_idx(&idxTable, &R, thrR, &expandedR, false, bins);
-    }
-    carryForwardParallel(expandedR, slices_mR);
-  });
-  std::thread radixS([&] {
-    if (m >= S.num_tuples) {
-      RHO_idx(&S, &idxTable, thrS, &expandedS, true, bins);
-    } else {
-      RHO_idx(&idxTable, &S, thrS, &expandedS, false, bins);
-    }
-    carryForwardParallel(expandedS, slices_mS);
-  });
-  radixR.join();
-  radixS.join();
-#else
-  if (m >= R.num_tuples) {
-    RHO_idx(&R, &idxTable, numThreads, &expandedR, true);
-  } else {
-    RHO_idx(&idxTable, &R, numThreads, &expandedR, false);
-  }
-  carryForwardParallel(expandedR, slices_m);
-
-  if (m >= S.num_tuples) {
-    RHO_idx(&S, &idxTable, numThreads, &expandedS, true);
-  } else {
-    RHO_idx(&idxTable, &S, numThreads, &expandedS, false);
-  }
-  carryForwardParallel(expandedS, slices_m);
-#endif
-
-  alignTableParallel(expandedS, slices_m, numThreads);
+  alignTableParallel(S, slices_m, numThreads);
   std::vector<JoinRec> joinResults;
-  mergeExpandedParallel(expandedR, expandedS, numThreads, joinResults);
+  mergeExpandedParallel(R, S, numThreads, joinResults);
 
-  printf("(DISTRIBUTE) Bins: %u, Lemma 1 p: %.4f\n", bins, p);
   double sec =
       std::chrono::duration_cast<std::chrono::duration<double>>(tEnd - tStart)
           .count();
@@ -256,7 +291,88 @@ int main(int argc, char *argv[]) {
       outER << j.keyR << ' ' << j.payR << ' ' << j.keyS << ' ' << j.payS
             << '\n';
   }
-  printf("Join result rows: %ld (written to join.txt)\n", expandedR.num_tuples);
+  printf("Join result rows: %d (written to join.txt)\n", m);
+
+  //   std::vector<Slice> slices_m = buildSlices(m, numThreads);
+
+  //   const std::size_t bytes = m * sizeof(row_t);
+  //   table_t idxTable{};
+  //   idxTable.tuples = static_cast<row_t *>(aligned_alloc(32, bytes));
+  //   idxTable.num_tuples = m;
+  //   buildResultIndices(slices_m, idxTable);
+
+  //   table_t expandedR{}, expandedS{};
+  //   expandedR.num_tuples = m;
+  //   expandedS.num_tuples = m;
+  //   expandedR.tuples = static_cast<row_t *>(std::aligned_alloc(32, bytes));
+  //   expandedS.tuples = static_cast<row_t *>(std::aligned_alloc(32, bytes));
+  //   std::memset(expandedR.tuples, 0, bytes);
+  //   std::memset(expandedS.tuples, 0, bytes);
+
+  //   if (m < R.num_tuples) {
+  //     std::tie(bins, p) = findMaxBins(m / std::pow(2, NUM_RADIX_BITS));
+  //   }
+
+  // #ifndef INSUFFICIENT_MEMORY
+  //   std::vector<Slice> slices_mR =
+  //       buildSlices(m, std::max<std::uint32_t>(1, numThreads / 2));
+  //   std::vector<Slice> slices_mS = buildSlices(
+  //       m, std::max<std::uint32_t>(
+  //              1, numThreads - (std::max<std::uint32_t>(1, numThreads /
+  //              2))));
+
+  //   std::thread radixR([&] {
+  //     if (m >= R.num_tuples) {
+  //       RHO_idx(&R, &idxTable, thrR, &expandedR, true, bins);
+  //     } else {
+  //       RHO_idx(&idxTable, &R, thrR, &expandedR, false, bins);
+  //     }
+  //     carryForwardParallel(expandedR, slices_mR);
+  //   });
+  //   std::thread radixS([&] {
+  //     if (m >= S.num_tuples) {
+  //       RHO_idx(&S, &idxTable, thrS, &expandedS, true, bins);
+  //     } else {
+  //       RHO_idx(&idxTable, &S, thrS, &expandedS, false, bins);
+  //     }
+  //     carryForwardParallel(expandedS, slices_mS);
+  //   });
+  //   radixR.join();
+  //   radixS.join();
+  // #else
+  //   if (m >= R.num_tuples) {
+  //     RHO_idx(&R, &idxTable, numThreads, &expandedR, true);
+  //   } else {
+  //     RHO_idx(&idxTable, &R, numThreads, &expandedR, false);
+  //   }
+  //   carryForwardParallel(expandedR, slices_m);
+
+  //   if (m >= S.num_tuples) {
+  //     RHO_idx(&S, &idxTable, numThreads, &expandedS, true);
+  //   } else {
+  //     RHO_idx(&idxTable, &S, numThreads, &expandedS, false);
+  //   }
+  //   carryForwardParallel(expandedS, slices_m);
+  // #endif
+
+  //   alignTableParallel(expandedS, slices_m, numThreads);
+  //   std::vector<JoinRec> joinResults;
+  //   mergeExpandedParallel(expandedR, expandedS, numThreads, joinResults);
+
+  //   printf("(DISTRIBUTE) Bins: %u, Lemma 1 p: %.4f\n", bins, p);
+  //   double sec =
+  //       std::chrono::duration_cast<std::chrono::duration<double>>(tEnd -
+  //       tStart)
+  //           .count();
+  //   printf("\nJoin completed in %f s\n", sec);
+  //   {
+  //     std::ofstream outER("join.txt");
+  //     for (const auto &j : joinResults)
+  //       outER << j.keyR << ' ' << j.payR << ' ' << j.keyS << ' ' << j.payS
+  //             << '\n';
+  //   }
+  //   printf("Join result rows: %ld (written to join.txt)\n",
+  //   expandedR.num_tuples);
 
   return 0;
 }

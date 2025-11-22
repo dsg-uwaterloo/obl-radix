@@ -14,7 +14,7 @@ find_package(Threads REQUIRED)
 # External implementations
 # ------------------------------------------------------------------------------
 # Add bitonic sort implementation
-add_subdirectory(external/bitonic)
+#add_subdirectory(external/bitonic)
 
 # Add radix partition implementation  
 add_subdirectory(external/radix_partition)
@@ -22,21 +22,24 @@ add_subdirectory(external/radix_partition)
 # ------------------------------------------------------------------------------
 # Main executable
 # ------------------------------------------------------------------------------
-add_executable(OblRadix
-    main.cpp
-    oblivious_ops.cpp)
+add_executable(OblRadix main.cpp oblivious_ops.cpp)
 
+#target_include_directories(OblRadix PRIVATE 
+#    external/bitonic
+#    external/radix_partition)
 target_include_directories(OblRadix PRIVATE 
-    external/bitonic
     external/radix_partition)
 
 # Set radix fan-out
 target_compile_definitions(radix_partition PUBLIC 
-    NUM_RADIX_BITS=10
+    NUM_RADIX_BITS=2
     NUM_PASSES=2)
 
 # Link against all required libraries
+#target_link_libraries(OblRadix PRIVATE 
+#    bitonic_rt 
+#    radix_partition 
+#    Threads::Threads)
 target_link_libraries(OblRadix PRIVATE 
-    bitonic_rt 
     radix_partition 
     Threads::Threads)

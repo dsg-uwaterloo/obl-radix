@@ -8,12 +8,15 @@
 
 using std::vector;
 
+// Global timers defined in main.cpp
+extern std::chrono::high_resolution_clock::time_point tStart, tEnd;
+
 inline void carryForwardParallel(table_t &tbl,
                                  const std::vector<Slice> &slices) {
-  const std::size_t N = tbl.num_tuples;
+  const std::uint32_t N = tbl.num_tuples;
   if (N == 0)
     return;
-  const int P = slices.size();
+  const std::uint32_t P = slices.size();
 
   static thread_local std::vector<Record> lastScratch;
   static thread_local std::vector<Record> seedScratch;
@@ -37,7 +40,7 @@ inline void carryForwardParallel(table_t &tbl,
         if (i + 16 < sl.end)
           _mm_prefetch(reinterpret_cast<const char *>(&tblTuples[i + 16]),
                        _MM_HINT_T0);
-        std::uint64_t isReal = -(tblTuples[i].cntExpand != 0);
+        std::uint64_t isReal = -(tblTuples[i].cntSelf != 0);
         maskedCopyRecord32(reinterpret_cast<const Record *>(&tblTuples[i]),
                            &cur, isReal);
       }
@@ -50,7 +53,7 @@ inline void carryForwardParallel(table_t &tbl,
   Record running{};
   for (int t = 0; t < P; ++t) {
     seed[t] = running;
-    std::uint64_t has = -(last[t].cntExpand != 0);
+    std::uint64_t has = -(last[t].cntSelf != 0);
     maskedCopyRecord32(reinterpret_cast<const Record *>(&last[t]), &running,
                        has);
   }
@@ -65,7 +68,8 @@ inline void carryForwardParallel(table_t &tbl,
         if (i + 16 < sl.end)
           _mm_prefetch(reinterpret_cast<const char *>(&tblTuples[i + 16]),
                        _MM_HINT_T0);
-        std::uint64_t isReal = -(tblTuples[i].cntExpand != 0);
+        std::uint64_t isReal = -(tblTuples[i].cntSelf != 0);
+
         maskedCopyRecord32(reinterpret_cast<const Record *>(&tblTuples[i]),
                            &cur, isReal);
         maskedCopyRecord32(&cur, reinterpret_cast<Record *>(&tblTuples[i]),
@@ -73,6 +77,9 @@ inline void carryForwardParallel(table_t &tbl,
       }
     });
   }
+
   for (auto &th : pool)
     th.join();
+
+  tEnd = std::chrono::high_resolution_clock::now();
 }

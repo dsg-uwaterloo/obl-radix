@@ -22,7 +22,7 @@ add_subdirectory(external/radix_partition)
 # ------------------------------------------------------------------------------
 # Main executable
 # ------------------------------------------------------------------------------
-add_executable(OblRadix main.cpp)
+add_executable(OblRadix main.cpp oblivious_ops.cpp)
 
 target_include_directories(OblRadix PRIVATE 
     external/bitonic

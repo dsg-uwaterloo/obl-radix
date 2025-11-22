@@ -109,17 +109,8 @@ inline void alignTableParallel(table_t &S, const std::vector<Slice> &slices,
     }
   };
 
-  thread_system_init();
-  std::vector<std::thread> pool;
-  for (size_t i = 1; i < numThreads; ++i)
-    pool.emplace_back(thread_start_work);
-
   bitonic_sort_(reinterpret_cast<elem_t *>(S.tuples), true, 0, N, numThreads,
                 true);
-
+                
   tEnd = std::chrono::high_resolution_clock::now();
-  thread_release_all();
-  for (auto &t : pool)
-    t.join();
-  thread_system_cleanup();
 }
