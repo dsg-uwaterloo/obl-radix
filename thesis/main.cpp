@@ -4,11 +4,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
-#include <inttypes.h>
 #include <iostream>
 #include <memory>
-#include <sys/mman.h>
+#include <sys/random.h>
+#include <tbb/global_control.h>
 #include <tbb/parallel_sort.h>
 
 #include "align_table.h"
@@ -40,10 +39,8 @@ extern "C" {
 // #define INSUFFICIENT_MEMORY
 
 // Global timers
-std::chrono::high_resolution_clock::time_point tStart, tEnd;
-
-// Global secret used by triple32 hash (non-zero default seed)
-std::uint32_t SECRET = 0x9e3779b9U;
+std::chrono::high_resolution_clock::time_point tEnd;
+std::uint32_t SECRET;
 
 inline std::uint32_t prev_power_of_two(std::uint32_t n) {
   if (n <= 1)
@@ -76,16 +73,6 @@ findMaxBins(double n, double target_p = 0.001, double eps = 1e-6) {
   return {prev_power_of_two(static_cast<std::uint32_t>(std::ceil(m))), p};
 }
 
-static void printOutput(const char *label, const table_t &tbl) {
-  printf("%s (num_tuples=%" PRIu64 ")\n", label,
-         static_cast<uint64_t>(tbl.num_tuples));
-  for (uint64_t i = 0; i < tbl.num_tuples; ++i) {
-    const row_t &rec = tbl.tuples[i];
-    printf("  [%" PRIu64 "] key=%u cntSelf=%u cntExpand=%u idx=%u hashKey=%u\n",
-           i, rec.key, rec.cntSelf, rec.cntExpand, rec.idx, rec.hashKey);
-  }
-}
-
 static void shuffleTable(table_t &tbl) {
   if (tbl.num_tuples == 0)
     return;
@@ -99,7 +86,7 @@ static void shuffleTable(table_t &tbl) {
       return;
     }
     // Provide a heap size proportional to the data; back off on bad_alloc.
-    constexpr uint64_t MAX_HEAP = 128ULL << 30; // 1 GiB cap 
+    constexpr uint64_t MAX_HEAP = 128ULL << 30; // 1 GiB cap
     constexpr uint64_t MIN_HEAP = 64ULL << 20;  // 64 MiB floor
     uint64_t heapSize = std::max<uint64_t>(vec.size(), 4096UL) *
                         sizeof(EM::Algorithm::TaggedT<row_t>) * 2;
@@ -149,9 +136,17 @@ int main(int argc, char *argv[]) {
   printf("Input: %s\n", inputPath.c_str());
   printf("Threads: %u\n", numThreads);
 
+  {
+    ssize_t tmp = getrandom(&SECRET, sizeof(SECRET), 0);
+    if (tmp != sizeof(SECRET)) {
+      perror("Secret generation failed");
+      exit(1);
+    }
+  }
+
   std::vector<Record> t0, t1;
   if (!load_two_tables(inputPath, t0, t1))
-    return 1;
+    exit(1);
 
   if (t0.size() > t1.size())
     std::swap(t0, t1);
@@ -184,6 +179,9 @@ int main(int argc, char *argv[]) {
   auto slices_R = buildSlices(R.num_tuples, thrR);
   auto slices_S = buildSlices(S.num_tuples, thrS);
 
+  tbb::global_control c(tbb::global_control::max_allowed_parallelism,
+                        numThreads);
+
   auto padTableToSize = [&](table_t &tbl, uint32_t target) {
     if (tbl.num_tuples == target)
       return;
@@ -210,7 +208,8 @@ int main(int argc, char *argv[]) {
   auto [bins, p] = findMaxBins(R.num_tuples / std::pow(2, NUM_RADIX_BITS));
   printf("Bins: %u, Lemma 1 p: %.4f\n", bins, p);
 
-  tStart = std::chrono::high_resolution_clock::now();
+  std::chrono::high_resolution_clock::time_point tStart =
+      std::chrono::high_resolution_clock::now();
 
   std::thread partitionR([&] {
     std::vector<int> lastLen(slices_R.size()), mergeVal(slices_R.size() - 1);
