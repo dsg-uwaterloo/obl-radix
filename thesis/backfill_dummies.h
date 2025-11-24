@@ -42,7 +42,7 @@ inline void backfillDummiesParallel(table_t &tbl,
   Record running{};
   for (ssize_t t = static_cast<ssize_t>(P) - 1; t >= 0; --t) {
     seed[t] = running;
-    std::uint64_t hasReal = -(tail[t].key != 0);
+    std::uint64_t hasReal = -(tail[t].cntSelf != 0);
     maskedCopyRecord32(reinterpret_cast<const Record *>(&tail[t]), &running,
                        hasReal);
   }

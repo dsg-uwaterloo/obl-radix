@@ -85,9 +85,8 @@ static void shuffleTable(table_t &tbl) {
       std::copy(tmp.begin(), tmp.end(), vec.begin());
       return;
     }
-    // Provide a heap size proportional to the data; back off on bad_alloc.
-    constexpr uint64_t MAX_HEAP = 128ULL << 30; // 1 GiB cap
-    constexpr uint64_t MIN_HEAP = 64ULL << 20;  // 64 MiB floor
+    constexpr uint64_t MAX_HEAP = 190ULL << 30; 
+    constexpr uint64_t MIN_HEAP = 64ULL << 20; 
     uint64_t heapSize = std::max<uint64_t>(vec.size(), 4096UL) *
                         sizeof(EM::Algorithm::TaggedT<row_t>) * 2;
     heapSize = std::max<uint64_t>(heapSize, MIN_HEAP);
@@ -120,17 +119,13 @@ static void shuffleTable(table_t &tbl) {
 int main(int argc, char *argv[]) {
   printf("[INFO] Set number of radix bits and passes in the top-level "
          "CMakeLists.txt.\n");
-  std::uint32_t numThreads = 32;
+  std::uint32_t numThreads = 1;
   std::string inputPath = "../../datasets/real/amazon.txt";
 
   if (argc > 1)
-    numThreads = std::max<std::uint32_t>(1, std::stoul(argv[1]));
-  if (argc > 2)
-    inputPath = argv[2];
-  if (argc > 3) {
-    std::cerr << "Program takes 2 arguments: number of threads and input "
-                 "filepath."
-              << std::endl;
+    inputPath = argv[1];
+  if (argc > 2) {
+    std::cerr << "Program takes 1 argument: input filepath." << std::endl;
     return 1;
   }
   printf("Input: %s\n", inputPath.c_str());
@@ -156,12 +151,6 @@ int main(int argc, char *argv[]) {
   std::vector<Record> partS;
   partS.reserve(t1.size());
 
-  std::uint32_t thrR = std::max<std::uint32_t>(
-      1, ceil((static_cast<double>(t0.size()) / (t0.size() + t1.size())) *
-              numThreads));
-  std::uint32_t thrS = std::max<std::uint32_t>(1, numThreads - thrR);
-  printf("threads_R: %u, threads_S: %u\n", thrR, thrS);
-
   table_t R, S;
   R.tuples = new row_t[t0.size()];
   std::memcpy(R.tuples, t0.data(), t0.size() * sizeof(Record));
@@ -176,8 +165,8 @@ int main(int argc, char *argv[]) {
   t1.clear();
   t1.shrink_to_fit();
 
-  auto slices_R = buildSlices(R.num_tuples, thrR);
-  auto slices_S = buildSlices(S.num_tuples, thrS);
+  auto slices_R = buildSlices(R.num_tuples, numThreads);
+  auto slices_S = buildSlices(S.num_tuples, numThreads);
 
   tbb::global_control c(tbb::global_control::max_allowed_parallelism,
                         numThreads);
@@ -194,25 +183,7 @@ int main(int argc, char *argv[]) {
       row_t dummy{};
       dummy.idx = UINT32_MAX;
       dummy.cntExpand = 0;
-      const uint32_t fillCount = target - copyCount;
-      const uint32_t fillThreads =
-          std::min<std::uint32_t>(numThreads, fillCount);
-      if (fillThreads <= 1) {
-        std::fill(expanded + copyCount, expanded + target, dummy);
-      } else {
-        auto fillSlices = buildSlices(fillCount, fillThreads);
-        std::vector<std::thread> pool;
-        pool.reserve(fillSlices.size());
-        for (const Slice &sl : fillSlices) {
-          pool.emplace_back([&, sl] {
-            std::fill(expanded + copyCount + sl.begin,
-                      expanded + copyCount + sl.end, dummy);
-          });
-        }
-        for (auto &th : pool) {
-          th.join();
-        }
-      }
+      std::fill(expanded + copyCount, expanded + target, dummy);
     }
 
     delete[] tbl.tuples;
@@ -229,47 +200,37 @@ int main(int argc, char *argv[]) {
   std::chrono::high_resolution_clock::time_point tStart =
       std::chrono::high_resolution_clock::now();
 
-  std::thread partitionR([&] {
-    std::vector<int> lastLen(slices_R.size()), mergeVal(slices_R.size() - 1);
-    parallelCounts(R, slices_R, lastLen, mergeVal);
-    replaceWithDummiesParallel(R, slices_R);
-  });
-  std::thread partitionS([&] {
-    std::vector<int> lastLen(slices_S.size()), mergeVal(slices_S.size() - 1);
-    parallelCounts(S, slices_S, lastLen, mergeVal);
-    replaceWithDummiesParallel(S, slices_S);
-  });
-  partitionR.join();
-  partitionS.join();
+  std::vector<int> lastLenR(slices_R.size()), mergeValR(slices_R.size() - 1);
+  parallelCounts(R, slices_R, lastLenR, mergeValR);
+  replaceWithDummiesParallel(R, slices_R);
 
   shuffleTable(R);
   assign_indices_parallel(R, numThreads);
+
+  std::vector<int> lastLenS(slices_S.size()), mergeValS(slices_S.size() - 1);
+  parallelCounts(S, slices_S, lastLenS, mergeValS);
+  replaceWithDummiesParallel(S, slices_S);
 
   RHO(&R, &S, numThreads, bins);
 
   auto cmp = [](const row_t &a, const row_t &b) { return a.idx < b.idx; };
   tbb::parallel_sort(R.tuples, R.tuples + R.num_tuples, cmp);
 
-  std::thread processR([&] {
-    backfillDummiesParallel(R, slices_R);
-    auto selected = std::make_unique<bool[]>(R.num_tuples);
-    m = prefixSumExpandParallel(R, slices_R, selected.get());
-    obli_compact_rows(R.tuples, selected.get(), R.num_tuples, thrR);
-    padTableToSize(R, m);
-    obli_distribute_rows(R.tuples, m, numThreads / 2);
-    carryForwardParallel(R, buildSlices(m, numThreads / 2));
-  });
-  std::thread processS([&] {
-    backfillDummiesParallel(S, slices_S);
-    auto selected = std::make_unique<bool[]>(S.num_tuples);
-    m = prefixSumExpandParallel(S, slices_S, selected.get());
-    obli_compact_rows(S.tuples, selected.get(), S.num_tuples, thrS);
-    padTableToSize(S, m);
-    obli_distribute_rows(S.tuples, m, numThreads / 2);
-    carryForwardParallel(S, buildSlices(m, numThreads / 2));
-  });
-  processR.join();
-  processS.join();
+  backfillDummiesParallel(R, slices_R);
+  auto selectedR = std::make_unique<bool[]>(R.num_tuples);
+  m = prefixSumExpandParallel(R, slices_R, selectedR.get());
+  obli_compact_rows(R.tuples, selectedR.get(), R.num_tuples, numThreads);
+  padTableToSize(R, m);
+  obli_distribute_rows(R.tuples, m, numThreads);
+  carryForwardParallel(R, buildSlices(m, numThreads));
+
+  backfillDummiesParallel(S, slices_S);
+  auto selectedS = std::make_unique<bool[]>(S.num_tuples);
+  prefixSumExpandParallel(S, slices_S, selectedS.get());
+  obli_compact_rows(S.tuples, selectedS.get(), S.num_tuples, numThreads);
+  padTableToSize(S, m);
+  obli_distribute_rows(S.tuples, m, numThreads);
+  carryForwardParallel(S, buildSlices(m, numThreads));
 
   alignTableParallel(S, buildSlices(m, numThreads), numThreads);
   std::vector<JoinRec> joinResults;
