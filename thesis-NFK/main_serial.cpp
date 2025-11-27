@@ -196,8 +196,12 @@ int main(int argc, char *argv[]) {
   parallelCounts(R, slices_R, lastLenR, mergeValR);
   replaceWithDummiesParallel(R, slices_R);
 
+  std::chrono::high_resolution_clock::time_point tShuffleStart =
+      std::chrono::high_resolution_clock::now();
   shuffleTable(R);
   assign_indices_parallel(R, numThreads);
+  std::chrono::high_resolution_clock::time_point tShuffleEnd =
+      std::chrono::high_resolution_clock::now();
 
   std::vector<int> lastLenS(slices_S.size()), mergeValS(slices_S.size() - 1);
   parallelCounts(S, slices_S, lastLenS, mergeValS);
@@ -232,6 +236,12 @@ int main(int argc, char *argv[]) {
       std::chrono::duration_cast<std::chrono::duration<double>>(tEnd - tStart)
           .count();
   printf("\nJoin completed in %f s\n", sec);
+
+  double shuffleSec = std::chrono::duration_cast<std::chrono::duration<double>>(
+                          tShuffleEnd - tShuffleStart)
+                          .count();
+  printf("\nOShuffle took %f s (%.2f%% of total execution time)\n", shuffleSec,
+         (shuffleSec * 100.0 / sec));
 
   {
     std::ofstream outER("join.txt");
