@@ -77,9 +77,8 @@ inline void carryForwardParallel(table_t &tbl,
       }
     });
   }
+  tEnd = std::chrono::high_resolution_clock::now();
 
   for (auto &th : pool)
     th.join();
-
-  tEnd = std::chrono::high_resolution_clock::now();
 }

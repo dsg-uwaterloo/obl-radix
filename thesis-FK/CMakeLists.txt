@@ -10,14 +10,10 @@ set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -DNDEBUG -mno-avx512f")
 
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
-find_package(TBB REQUIRED)
 
 # ------------------------------------------------------------------------------
 # External implementations
 # ------------------------------------------------------------------------------
-# Add bitonic sort implementation
-add_subdirectory(external/bitonic)
-
 # Add radix partition implementation  
 add_subdirectory(external/radix_partition)
 
@@ -28,24 +24,10 @@ add_executable(OblRadix
     main.cpp
     oblivious_ops.cpp)
 
-# set(OBLSORT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../oblsort-master/osort")
-#set(OBLSORT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../oblsort-master/osort")
-
-#target_include_directories(OblRadix PRIVATE 
-#    ${CMAKE_CURRENT_SOURCE_DIR}
-#    external/bitonic
-#    external/radix_partition
-#    ${OBLSORT_ROOT})
-
 target_include_directories(OblRadix PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}
-    external/bitonic
     external/radix_partition
     external/flexway_oshuffle)
-
-#target_sources(OblRadix PRIVATE
-#    ${OBLSORT_ROOT}/common/encutils.cpp
-#    ${OBLSORT_ROOT}/external_memory/server/serverBackend.cpp)
 
 target_sources(OblRadix PRIVATE
     external/flexway_oshuffle/common/encutils.cpp
@@ -55,13 +37,11 @@ target_compile_options(OblRadix PRIVATE -pthread)
 
 # Set radix fan-out
 target_compile_definitions(radix_partition PUBLIC 
-    NUM_RADIX_BITS=10
-    NUM_PASSES=2)
+    NUM_RADIX_BITS=5
+    NUM_PASSES=1)
 
 # Link against all required libraries
 target_link_libraries(OblRadix PRIVATE 
-    bitonic_rt 
     radix_partition 
     Threads::Threads
-    OpenSSL::Crypto
-    TBB::tbb)
+    OpenSSL::Crypto)
