@@ -37,8 +37,8 @@ target_compile_options(OblRadix PRIVATE -pthread)
 
 # Set radix fan-out
 target_compile_definitions(radix_partition PUBLIC 
-    NUM_RADIX_BITS=5
-    NUM_PASSES=1)
+    NUM_RADIX_BITS=10
+    NUM_PASSES=2)
 
 # Link against all required libraries
 target_link_libraries(OblRadix PRIVATE 

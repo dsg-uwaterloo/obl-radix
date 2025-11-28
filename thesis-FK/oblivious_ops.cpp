@@ -24,16 +24,6 @@ inline std::uint32_t prev_power_of_two(std::uint32_t n) {
   return 1u << (31u - leading);
 }
 
-// inline void oblivious_swap(row_t &a, row_t &b, bool flag) {
-//   const std::uint64_t mask =
-//       flag ? std::numeric_limits<std::uint64_t>::max() : 0;
-//   row_t tmp = a;
-//   maskedCopyRecord32(reinterpret_cast<const Record *>(&b),
-//                      reinterpret_cast<Record *>(&a), mask);
-//   maskedCopyRecord32(reinterpret_cast<const Record *>(&tmp),
-//                      reinterpret_cast<Record *>(&b), mask);
-// }
-
 inline void oblivious_swap(row_t &a, row_t &b, bool flag) {
   const std::uint64_t mask =
       static_cast<std::uint64_t>(0) - static_cast<std::uint64_t>(flag);
@@ -176,123 +166,6 @@ void compact_pow2(row_t *rows, const bool *selected,
   };
   parallel_for(0, half, enableParallel ? threads : 1, swapWorker);
 }
-
-// ---------- Oblivious expansion ----------
-
-inline bool row_has_value(const row_t &row) { return row.payPrimary[0] != 0; }
-
-void distribute_pow2(row_t *rows, std::uint32_t indexStart,
-                     std::uint32_t offset, std::uint32_t length,
-                     std::uint32_t threads);
-
-void distribute_generic(row_t *rows, std::uint32_t indexStart,
-                        std::uint32_t length, std::uint32_t threads) {
-  if (length <= 1)
-    return;
-  if (length == 2) {
-    const bool swap =
-        (row_has_value(rows[0]) && (rows[0].idx >= indexStart + 1)) ||
-        (row_has_value(rows[1]) && (rows[1].idx < indexStart + 1));
-    oblivious_swap(rows[0], rows[1], swap);
-    return;
-  }
-
-  const std::uint32_t pow2 = prev_power_of_two(length);
-  const std::uint32_t remainder = length - pow2;
-  if (remainder == 0) {
-    distribute_pow2(rows, indexStart, 0, pow2, threads);
-    return;
-  }
-
-  std::uint32_t m2 = 0;
-  const std::uint32_t pivot = indexStart + remainder;
-  for (std::uint32_t i = 0; i < remainder; ++i)
-    m2 += (rows[i].idx < pivot);
-
-  auto swapStage = [&](std::uint32_t begin, std::uint32_t end) {
-    for (std::uint32_t i = begin; i < end; ++i) {
-      const bool swap = (m2 <= i);
-      oblivious_swap(rows[i], rows[i + pow2], swap);
-    }
-  };
-  const bool enableParallel = (threads > 1 && length >= kParallelThreshold);
-  parallel_for(0, remainder, enableParallel ? threads : 1, swapStage);
-
-  std::uint32_t rightThreads = enableParallel ? threads * pow2 / length : 1;
-  rightThreads = std::max<std::uint32_t>(1, rightThreads);
-  std::uint32_t leftThreads =
-      enableParallel ? std::max<std::uint32_t>(1, threads - rightThreads) : 1;
-  const std::uint32_t offset =
-      (pow2 - remainder + m2) & (pow2 - 1); // modulo pow2
-
-  std::thread rightWorker;
-  if (enableParallel && rightThreads > 1) {
-    rightWorker = std::thread([=]() {
-      distribute_pow2(rows + remainder, indexStart + remainder, offset, pow2,
-                      rightThreads);
-    });
-  } else {
-    distribute_pow2(rows + remainder, indexStart + remainder, offset, pow2,
-                    rightThreads);
-  }
-  distribute_generic(rows, indexStart, remainder, leftThreads);
-  if (rightWorker.joinable())
-    rightWorker.join();
-}
-
-void distribute_pow2(row_t *rows, std::uint32_t indexStart,
-                     std::uint32_t offset, std::uint32_t length,
-                     std::uint32_t threads) {
-  if (length <= 1)
-    return;
-  if (length == 2) {
-    const bool swap =
-        (row_has_value(rows[0]) && (rows[0].idx >= indexStart + 1)) ||
-        (row_has_value(rows[1]) && (rows[1].idx < indexStart + 1));
-    oblivious_swap(rows[0], rows[1], swap);
-    return;
-  }
-
-  const std::uint32_t half = length / 2;
-  const std::uint32_t pivot = indexStart + half;
-  std::uint32_t m2 = 0;
-  for (std::uint32_t i = 0; i < length; ++i)
-    m2 += (rows[i].idx < pivot);
-
-  const bool cond0 = (offset < half);
-  const bool cond1 = (((offset % half) + m2) < half);
-  const bool flag = cond0 ^ cond1;
-  const std::uint32_t boundary = (offset + m2) % half;
-
-  auto swapStage = [&](std::uint32_t begin, std::uint32_t end) {
-    for (std::uint32_t i = begin; i < end; ++i) {
-      const bool swap = flag ^ (i >= boundary);
-      oblivious_swap(rows[i], rows[i + half], swap);
-    }
-  };
-  const bool enableParallel = (threads > 1 && length >= kParallelThreshold);
-  parallel_for(0, half, enableParallel ? threads : 1, swapStage);
-
-  std::uint32_t rightThreads =
-      enableParallel ? std::max<std::uint32_t>(1, threads - threads / 2) : 1;
-  std::uint32_t leftThreads =
-      enableParallel ? std::max<std::uint32_t>(1, threads / 2) : 1;
-
-  std::thread rightWorker;
-  if (enableParallel && rightThreads > 1) {
-    rightWorker = std::thread([=]() {
-      distribute_pow2(rows + half, indexStart + half, (offset + m2) % half,
-                      half, rightThreads);
-    });
-  } else {
-    distribute_pow2(rows + half, indexStart + half, (offset + m2) % half, half,
-                    rightThreads);
-  }
-  distribute_pow2(rows, indexStart, offset % half, half, leftThreads);
-  if (rightWorker.joinable())
-    rightWorker.join();
-}
-
 } // namespace
 
 void obli_compact_rows(row_t *rows, const bool *selected, std::uint32_t length,
@@ -304,11 +177,4 @@ void obli_compact_rows(row_t *rows, const bool *selected, std::uint32_t length,
     prefix[i + 1] = prefix[i] + static_cast<std::uint32_t>(selected[i]);
   compact_generic(rows, selected, prefix.data(), length,
                   clamp_threads(numThreads));
-}
-
-void obli_distribute_rows(row_t *rows, std::uint32_t length,
-                          std::uint32_t numThreads) {
-  if (!rows || length <= 1)
-    return;
-  distribute_generic(rows, 0, length, clamp_threads(numThreads));
 }

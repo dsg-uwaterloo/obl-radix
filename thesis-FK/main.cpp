@@ -11,7 +11,6 @@
 #include <tbb/parallel_sort.h>
 
 #include "backfill_dummies.h"
-#include "carry_forward.h"
 #include "external_memory/algorithm/kway_butterfly_sort.hpp"
 #include "generate_hash_R.h"
 #include "inputs.h"
@@ -27,8 +26,6 @@ extern "C" {
 #include "radix_join_counts.h"
 }
 
-// Global timer
-std::chrono::high_resolution_clock::time_point tEnd;
 std::uint32_t SECRET;
 
 static void printOutput(const char *label, const table_t &tbl) {
@@ -166,19 +163,6 @@ int main(int argc, char *argv[]) {
   std::vector<int> lastLen(slices_S_numThreads.size()),
       mergeVal(slices_S_numThreads.size() - 1);
 
-  auto padTableToSize = [&](table_t &tbl, uint32_t target) {
-    if (tbl.num_tuples == target)
-      return;
-
-    row_t *expanded = new row_t[target];
-    const uint32_t copyCount = std::min<uint32_t>(tbl.num_tuples, target);
-    std::memcpy(expanded, tbl.tuples, copyCount * sizeof(row_t));
-
-    delete[] tbl.tuples;
-    tbl.tuples = expanded;
-    tbl.num_tuples = target;
-  };
-
   std::uint32_t m, bins;
   double p;
 
@@ -214,9 +198,8 @@ int main(int argc, char *argv[]) {
   auto selected = std::make_unique<bool[]>(S.num_tuples);
   m = prefixSumExpandParallel(S, slices_S_numThreads, selected.get());
   obli_compact_rows(S.tuples, selected.get(), S.num_tuples, numThreads);
-  padTableToSize(S, m);
-  obli_distribute_rows(S.tuples, m, numThreads);
-  carryForwardParallel(S, buildSlices(m, numThreads));
+  std::chrono::high_resolution_clock::time_point tEnd =
+      std::chrono::high_resolution_clock::now();
 
   double sec =
       std::chrono::duration_cast<std::chrono::duration<double>>(tEnd - tStart)
@@ -232,8 +215,8 @@ int main(int argc, char *argv[]) {
   {
     std::ofstream outER("join.txt");
     for (int i = 0; i < m; i++) {
-      outER << S.tuples[i].key << ' ' << S.tuples[i].paySelf << ' '
-            << S.tuples[i].key << ' ' << S.tuples[i].payPrimary << '\n';
+      outER << S.tuples[i].key << ' ' << S.tuples[i].payPrimary << ' '
+            << S.tuples[i].key << ' ' << S.tuples[i].paySelf << '\n';
     }
   }
   printf("Join result rows: %d (written to join.txt)\n", m);
