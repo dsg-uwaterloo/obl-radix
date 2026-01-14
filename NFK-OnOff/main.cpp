@@ -110,7 +110,7 @@ inline std::uint32_t prev_power_of_two(std::uint32_t n) {
  */
 inline std::pair<std::uint32_t, double>
 findMaxBins(double n, double target_p = 0.001, double eps = 1e-6) {
-  return {1, 0.001};
+  // return {1, 0.001};
   int i;
   double low = 1, high = n, m = 0, p = 0;
   for (i = 0; i < 100; ++i) {
@@ -658,7 +658,7 @@ int main(int argc, char *argv[]) {
   printf("Bins: %u, Lemma 1 p: %.4f\n", bins, p);
 
   std::chrono::high_resolution_clock::time_point padRStart, padSStart, padREnd,
-      padSEnd;
+      padSEnd, dedupRStart, dedupSStart;
 
 #ifndef PRE_SORTED
   total_num_threads = numThreads;
@@ -689,6 +689,7 @@ int main(int argc, char *argv[]) {
   std::thread partitionR([&] {
     std::vector<int> lastLen(slices_R.size()), mergeVal(slices_R.size() - 1);
     parallelCounts(R, slices_R, lastLen, mergeVal);
+    dedupRStart = std::chrono::high_resolution_clock::now();
     replaceWithDummiesParallel(R, slices_R, SECRET);
     padRStart = std::chrono::high_resolution_clock::now();
     padTableUniform(R, bins, thrR);
@@ -697,6 +698,7 @@ int main(int argc, char *argv[]) {
   std::thread partitionS([&] {
     std::vector<int> lastLen(slices_S.size()), mergeVal(slices_S.size() - 1);
     parallelCounts(S, slices_S, lastLen, mergeVal);
+    dedupSStart = std::chrono::high_resolution_clock::now();
     replaceWithDummiesParallel(S, slices_S, SECRET);
     padSStart = std::chrono::high_resolution_clock::now();
     padTableUniform(S, bins, thrS);
@@ -817,6 +819,12 @@ int main(int argc, char *argv[]) {
   printf("\nSorting took %f s (%.2f%% of total execution time)\n", sortSec,
          (sortSec * 100.0 / sec));
 #endif
+
+  double dedupSec = std::chrono::duration_cast<std::chrono::duration<double>>(
+                        (padSStart - dedupSStart) + (padRStart - dedupRStart))
+                        .count();
+  printf("\nDedup took %f s (%.2f%% of total execution time)\n", dedupSec,
+         (dedupSec * 100.0 / sec));
 
   double paddingSec = std::chrono::duration_cast<std::chrono::duration<double>>(
                           (padSEnd - padSStart) + (padREnd - padRStart))

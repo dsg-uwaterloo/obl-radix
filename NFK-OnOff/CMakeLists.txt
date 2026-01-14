@@ -51,4 +51,5 @@ target_link_libraries(OblRadix PRIVATE
     radix_partition 
     Threads::Threads
     OpenSSL::Crypto
+    OpenSSL::SSL 
     TBB::tbb)
