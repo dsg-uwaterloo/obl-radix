@@ -24,7 +24,8 @@
 #include "inputs.h"
 #include "merge.h"
 #include "oblivious_ops.h"
-#include "pad_table_uniform.h"
+// #include "pad_table_uniform.h"
+#include "pad_table_uniform_new.h"
 #include "parallel_counts.h"
 #include "parallel_index.h"
 #include "prefix_sum_expand.h"
@@ -407,8 +408,8 @@ int main(int argc, char *argv[]) {
 
   padSStart = std::chrono::high_resolution_clock::now();
 
-  padTableUniform(R, bins, numThreads);
-  padTableUniform(S, bins, numThreads);
+  padTableUniformNew(R, bins, numThreads);
+  padTableUniformNew(S, bins, numThreads);
   padSEnd = std::chrono::high_resolution_clock::now();
 
   // printOutput("R after padding", R);

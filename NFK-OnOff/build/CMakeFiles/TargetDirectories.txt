@@ -1,0 +1,10 @@
+/home/azureuser/obl-radix/NFK-OnOff/build/CMakeFiles/OblRadix.dir
+/home/azureuser/obl-radix/NFK-OnOff/build/CMakeFiles/edit_cache.dir
+/home/azureuser/obl-radix/NFK-OnOff/build/CMakeFiles/rebuild_cache.dir
+/home/azureuser/obl-radix/NFK-OnOff/build/external/bitonic/CMakeFiles/liboblivious.dir
+/home/azureuser/obl-radix/NFK-OnOff/build/external/bitonic/CMakeFiles/bitonic_rt.dir
+/home/azureuser/obl-radix/NFK-OnOff/build/external/bitonic/CMakeFiles/edit_cache.dir
+/home/azureuser/obl-radix/NFK-OnOff/build/external/bitonic/CMakeFiles/rebuild_cache.dir
+/home/azureuser/obl-radix/NFK-OnOff/build/external/radix_partition/CMakeFiles/radix_partition.dir
+/home/azureuser/obl-radix/NFK-OnOff/build/external/radix_partition/CMakeFiles/edit_cache.dir
+/home/azureuser/obl-radix/NFK-OnOff/build/external/radix_partition/CMakeFiles/rebuild_cache.dir

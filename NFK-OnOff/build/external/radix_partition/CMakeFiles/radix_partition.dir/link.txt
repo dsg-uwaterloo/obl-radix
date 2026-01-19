@@ -1,0 +1,2 @@
+/usr/bin/ar qc libradix_partition.a CMakeFiles/radix_partition.dir/radix_join_counts.c.o CMakeFiles/radix_partition.dir/task_queue.c.o CMakeFiles/radix_partition.dir/util.c.o
+/usr/bin/ranlib libradix_partition.a
