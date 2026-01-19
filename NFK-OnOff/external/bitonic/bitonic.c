@@ -1,15 +1,15 @@
 #include "bitonic.h"
+#include "elem_t.h"
+#include <liboblivious/algorithms.h>
+#include <liboblivious/primitives.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <threads.h>
-#include <liboblivious/algorithms.h>
-#include <liboblivious/primitives.h>
-#include "elem_t.h"
 // #include "common/error.h"
 // #include "common/util.h"
-//#include "enclave/mpi_tls.h"
+// #include "enclave/mpi_tls.h"
 // #include "enclave/parallel_enc.h"
 #include "threading.h"
 
@@ -17,228 +17,276 @@
 
 static bool dimension2D;
 static elem_t *arr;
+static bool compare_hash_lowbits;
+static uint32_t hash_lowbits_mask;
 
-bool compare2D(elem_t* a, elem_t* b) {
-    bool c;
-    c = (a->key < b->key) || (dimension2D && (a->key == b->key) && (a->idx < b->idx));
-    // c = (a->key < b->key) || (dimension2D && (a->key == b->key) && (a->j_order < b->j_order));
-    return c;
+static inline uint32_t bool_to_mask_u32(bool v) {
+  return 0u - (uint32_t)(v != 0);
+}
+
+static inline uint32_t select_u32(uint32_t a, uint32_t b, uint32_t sel_mask) {
+  return (a & ~sel_mask) | (b & sel_mask);
+}
+
+bool compare2D(elem_t *a, elem_t *b) {
+  // bool c;
+  const uint32_t use_hash = bool_to_mask_u32(compare_hash_lowbits);
+  const uint32_t ka =
+      select_u32(a->key, a->hashKey & hash_lowbits_mask, use_hash);
+  const uint32_t kb =
+      select_u32(b->key, b->hashKey & hash_lowbits_mask, use_hash);
+  // c = (ka < kb) || (dimension2D && (ka == kb) && (a->idx < b->idx));
+  uint32_t lt_key = (uint32_t)(ka < kb);
+  uint32_t eq_key = (uint32_t)(ka == kb);
+  uint32_t lt_idx = (uint32_t)(a->idx < b->idx);
+  uint32_t dim = (uint32_t)(dimension2D);
+  return (lt_key | (dim & eq_key & lt_idx)) != 0u;
 }
 
 bool compare2D_(int a, int b) {
-    bool c;
-    c = (arr[a].key < arr[b].key) || (dimension2D && (arr[a].key == arr[b].key) && (arr[a].idx < arr[b].idx));
-    return c;
+  // bool c;
+  const uint32_t use_hash = bool_to_mask_u32(compare_hash_lowbits);
+  const uint32_t ka =
+      select_u32(arr[a].key, arr[a].hashKey & hash_lowbits_mask, use_hash);
+  const uint32_t kb =
+      select_u32(arr[b].key, arr[b].hashKey & hash_lowbits_mask, use_hash);
+  // c = (ka < kb) || (dimension2D && (ka == kb) && (arr[a].idx < arr[b].idx));
+  uint32_t lt_key = (uint32_t)(ka < kb);
+  uint32_t eq_key = (uint32_t)(ka == kb);
+  uint32_t lt_idx = (uint32_t)(arr[a].idx < arr[b].idx);
+  uint32_t dim = (uint32_t)(dimension2D);
+  return (lt_key | (dim & eq_key & lt_idx)) != 0u;
 }
 
 inline int prev_pow_two(int x) {
-    int y = 1;
-    while (y < x) y <<= 1;
-    return y >>= 1;
+  int y = 1;
+  while (y < x)
+    y <<= 1;
+  return y >>= 1;
 }
 
 void bitonic_compare(bool ascend, int i, int j) {
-    bool condition = !(compare2D_(i, j) == ascend);
-    o_memswap(arr+i, arr+j, sizeof(*arr),condition);
+  bool condition = !(compare2D_(i, j) == ascend);
+  o_memswap(arr + i, arr + j, sizeof(*arr), condition);
 }
 
 struct bitonic_merge_args_1 {
-    bool ascend;
-    int lo;
-    int hi;
-    int number_threads;
+  bool ascend;
+  int lo;
+  int hi;
+  int number_threads;
 };
 
 struct bitonic_merge_args_2 {
-    bool ascend;
-    int a;
-    int b;
-    int c;
+  bool ascend;
+  int a;
+  int b;
+  int c;
 };
 
 void bitonic_merge_2(void *voidargs) {
-    struct bitonic_merge_args_2 *args = (struct bitonic_merge_args_2*)voidargs;
-    bool ascend = args->ascend;
-    int a = args->a;
-    int b = args->b;
-    int c = args->c;
+  struct bitonic_merge_args_2 *args = (struct bitonic_merge_args_2 *)voidargs;
+  bool ascend = args->ascend;
+  int a = args->a;
+  int b = args->b;
+  int c = args->c;
 
-    for(int i = a; i < b; i++) {
-        bitonic_compare(ascend, i, i + c);
-    }
+  for (int i = a; i < b; i++) {
+    bitonic_compare(ascend, i, i + c);
+  }
 
-    return;
+  return;
 }
 
 void bitonic_merge(void *voidargs) {
-    struct bitonic_merge_args_1 *args = (struct bitonic_merge_args_1*)voidargs;
-    bool ascend = args->ascend;
-    int lo = args->lo;
-    int hi = args->hi;
-    int number_threads = args->number_threads;
+  struct bitonic_merge_args_1 *args = (struct bitonic_merge_args_1 *)voidargs;
+  bool ascend = args->ascend;
+  int lo = args->lo;
+  int hi = args->hi;
+  int number_threads = args->number_threads;
 
-    if (hi <= lo + 1) return;
-
-    int mid_len = prev_pow_two(hi - lo);
-
-    if (number_threads <= 1) {
-        for (int i = lo; i < hi - mid_len; i++) {
-            bitonic_compare(ascend, i, i + mid_len);
-        }
-    } else {
-        struct bitonic_merge_args_2 args2[number_threads];
-        int index_start[number_threads + 1];
-        index_start[0] = lo;
-        int length_thread = (hi - mid_len - lo) / number_threads;
-        int length_extra = (hi - mid_len - lo) % number_threads;
-        struct thread_work work[number_threads - 1];
-        
-        for (int i = 0; i < number_threads; i++) {
-            index_start[i + 1] = index_start[i] + length_thread + (i < length_extra);
-            
-            args2[i].ascend = ascend;
-            args2[i].a = index_start[i];
-            args2[i].b = index_start[i + 1];
-            args2[i].c = mid_len;
-
-            if (i < number_threads - 1) {
-                work[i].type = THREAD_WORK_SINGLE;
-                work[i].single.func = bitonic_merge_2;
-                work[i].single.arg = args2 + i;
-                thread_work_push(&work[i]);
-            }
-        }
-        bitonic_merge_2(&args2[number_threads - 1]);
-        for (int i = 0; i < number_threads - 1; i++) {
-            thread_wait(&work[i]);
-        }
-    }
-
-
-    if (1 < number_threads) {
-        int number_threads_left = number_threads / 2;
-        int number_threads_right = number_threads - number_threads_left;
-        struct bitonic_merge_args_1 args1 = {
-            .ascend = ascend,
-            .lo = lo,
-            .hi = lo + mid_len,
-            .number_threads = number_threads_left,
-        };
-        struct bitonic_merge_args_1 args2 = {
-            .ascend = ascend,
-            .lo = lo + mid_len,
-            .hi = hi,
-            .number_threads = number_threads_right,
-        };
-        struct thread_work work_;
-        work_.type = THREAD_WORK_SINGLE;
-        work_.single.func = bitonic_merge;
-        work_.single.arg = &args1;
-        thread_work_push(&work_);
-
-        bitonic_merge(&args2);
-
-        thread_wait(&work_);
-    } else {
-        struct bitonic_merge_args_1 args1 = {
-            .ascend = ascend,
-            .lo = lo,
-            .hi = lo + mid_len,
-            .number_threads = 1,
-        };
-        struct bitonic_merge_args_1 args2 = {
-            .ascend = ascend,
-            .lo = lo + mid_len,
-            .hi = hi,
-            .number_threads = 1,
-        };
-
-        bitonic_merge(&args1);
-        bitonic_merge(&args2);
-    }
-
+  if (hi <= lo + 1)
     return;
+
+  int mid_len = prev_pow_two(hi - lo);
+
+  if (number_threads <= 1) {
+    for (int i = lo; i < hi - mid_len; i++) {
+      bitonic_compare(ascend, i, i + mid_len);
+    }
+  } else {
+    struct bitonic_merge_args_2 args2[number_threads];
+    int index_start[number_threads + 1];
+    index_start[0] = lo;
+    int length_thread = (hi - mid_len - lo) / number_threads;
+    int length_extra = (hi - mid_len - lo) % number_threads;
+    struct thread_work work[number_threads - 1];
+
+    for (int i = 0; i < number_threads; i++) {
+      index_start[i + 1] = index_start[i] + length_thread + (i < length_extra);
+
+      args2[i].ascend = ascend;
+      args2[i].a = index_start[i];
+      args2[i].b = index_start[i + 1];
+      args2[i].c = mid_len;
+
+      if (i < number_threads - 1) {
+        work[i].type = THREAD_WORK_SINGLE;
+        work[i].single.func = bitonic_merge_2;
+        work[i].single.arg = args2 + i;
+        thread_work_push(&work[i]);
+      }
+    }
+    bitonic_merge_2(&args2[number_threads - 1]);
+    for (int i = 0; i < number_threads - 1; i++) {
+      thread_wait(&work[i]);
+    }
+  }
+
+  if (1 < number_threads) {
+    int number_threads_left = number_threads / 2;
+    int number_threads_right = number_threads - number_threads_left;
+    struct bitonic_merge_args_1 args1 = {
+        .ascend = ascend,
+        .lo = lo,
+        .hi = lo + mid_len,
+        .number_threads = number_threads_left,
+    };
+    struct bitonic_merge_args_1 args2 = {
+        .ascend = ascend,
+        .lo = lo + mid_len,
+        .hi = hi,
+        .number_threads = number_threads_right,
+    };
+    struct thread_work work_;
+    work_.type = THREAD_WORK_SINGLE;
+    work_.single.func = bitonic_merge;
+    work_.single.arg = &args1;
+    thread_work_push(&work_);
+
+    bitonic_merge(&args2);
+
+    thread_wait(&work_);
+  } else {
+    struct bitonic_merge_args_1 args1 = {
+        .ascend = ascend,
+        .lo = lo,
+        .hi = lo + mid_len,
+        .number_threads = 1,
+    };
+    struct bitonic_merge_args_1 args2 = {
+        .ascend = ascend,
+        .lo = lo + mid_len,
+        .hi = hi,
+        .number_threads = 1,
+    };
+
+    bitonic_merge(&args1);
+    bitonic_merge(&args2);
+  }
+
+  return;
 }
 
 void bitonic_sort_new(void *voidargs) {
-    struct bitonic_sort_new_args *args = (struct bitonic_sort_new_args*)voidargs;
-    bool ascend = args->ascend;
-    int lo = args->lo;
-    int hi = args->hi;
-    int number_threads = args->number_threads;
+  struct bitonic_sort_new_args *args = (struct bitonic_sort_new_args *)voidargs;
+  bool ascend = args->ascend;
+  int lo = args->lo;
+  int hi = args->hi;
+  int number_threads = args->number_threads;
 
-    if (hi == -1) {
-        printf("\nWrong parameter for bitonic sort, exit!");
-        return;
-    };
+  if (hi == -1) {
+    printf("\nWrong parameter for bitonic sort, exit!");
+    return;
+  };
 
-    int mid = lo + (hi - lo) / 2;
+  int mid = lo + (hi - lo) / 2;
 
-    if (mid == lo) return;
-    
-    if (number_threads <= 1) {
-        struct bitonic_sort_new_args args1 = {
-                .ascend = !ascend,
-                .lo = lo,
-                .hi = mid,
-                .number_threads = 1,
-        };
-        struct bitonic_sort_new_args args2 = {
-                .ascend = ascend,
-                .lo = mid,
-                .hi = hi,
-                .number_threads = 1,
-        };
+  if (mid == lo)
+    return;
 
-        bitonic_sort_new(&args1);
-        bitonic_sort_new(&args2);
-    } else {
-        int number_threads_left = number_threads / 2;
-        int number_threads_right = number_threads - number_threads_left;
-        struct bitonic_sort_new_args args1 = {
-                .ascend = !ascend,
-                .lo = lo,
-                .hi = mid,
-                .number_threads = number_threads_left,
-        };
-        struct bitonic_sort_new_args args2 = {
-                .ascend = ascend,
-                .lo = mid,
-                .hi = hi,
-                .number_threads = number_threads_right,
-        };
-
-        struct thread_work work;
-        work.type = THREAD_WORK_SINGLE;
-        work.single.func = bitonic_sort_new;
-        work.single.arg = &args1;
-        thread_work_push(&work);
-
-        bitonic_sort_new(&args2);
-
-        thread_wait(&work);
-    };
-
-    struct bitonic_merge_args_1 args_merge = {
-        .ascend = ascend,
+  if (number_threads <= 1) {
+    struct bitonic_sort_new_args args1 = {
+        .ascend = !ascend,
         .lo = lo,
-        .hi = hi,
-        .number_threads = number_threads,
+        .hi = mid,
+        .number_threads = 1,
     };
-    bitonic_merge(&args_merge);
+    struct bitonic_sort_new_args args2 = {
+        .ascend = ascend,
+        .lo = mid,
+        .hi = hi,
+        .number_threads = 1,
+    };
+
+    bitonic_sort_new(&args1);
+    bitonic_sort_new(&args2);
+  } else {
+    int number_threads_left = number_threads / 2;
+    int number_threads_right = number_threads - number_threads_left;
+    struct bitonic_sort_new_args args1 = {
+        .ascend = !ascend,
+        .lo = lo,
+        .hi = mid,
+        .number_threads = number_threads_left,
+    };
+    struct bitonic_sort_new_args args2 = {
+        .ascend = ascend,
+        .lo = mid,
+        .hi = hi,
+        .number_threads = number_threads_right,
+    };
+
+    struct thread_work work;
+    work.type = THREAD_WORK_SINGLE;
+    work.single.func = bitonic_sort_new;
+    work.single.arg = &args1;
+    thread_work_push(&work);
+
+    bitonic_sort_new(&args2);
+
+    thread_wait(&work);
+  };
+
+  struct bitonic_merge_args_1 args_merge = {
+      .ascend = ascend,
+      .lo = lo,
+      .hi = hi,
+      .number_threads = number_threads,
+  };
+  bitonic_merge(&args_merge);
 }
 
-void bitonic_sort_(elem_t *arr_, bool ascend, int lo, int hi, int number_threads, bool D2enable) {
+void bitonic_sort_(elem_t *arr_, bool ascend, int lo, int hi,
+                   int number_threads, bool D2enable) {
 
-    arr = arr_;
-    dimension2D = D2enable;
-    struct bitonic_merge_args_1 args = {
-        .ascend = ascend,
-        .lo = lo,
-        .hi = hi,
-        .number_threads = number_threads,
-    };
-    bitonic_sort_new(&args);
+  arr = arr_;
+  dimension2D = D2enable;
+  compare_hash_lowbits = false;
+  hash_lowbits_mask = 0xffffffffu;
+  struct bitonic_merge_args_1 args = {
+      .ascend = ascend,
+      .lo = lo,
+      .hi = hi,
+      .number_threads = number_threads,
+  };
+  bitonic_sort_new(&args);
 
-    return;
+  return;
+}
+
+void bitonic_sort_hashkey_lowbits_(elem_t *arr_, bool ascend, int lo, int hi,
+                                   int number_threads, unsigned total_bits) {
+  arr = arr_;
+  dimension2D = true;
+  compare_hash_lowbits = true;
+  hash_lowbits_mask = (1u << total_bits) - 1u;
+
+  struct bitonic_merge_args_1 args = {
+      .ascend = ascend,
+      .lo = lo,
+      .hi = hi,
+      .number_threads = number_threads,
+  };
+  bitonic_sort_new(&args);
 }

@@ -24,6 +24,7 @@
 #include "inputs.h"
 #include "merge.h"
 #include "oblivious_ops.h"
+#include "pad_table_uniform.h"
 #include "parallel_counts.h"
 #include "parallel_index.h"
 #include "prefix_sum_expand.h"
@@ -175,319 +176,6 @@ static void shuffleTable(table_t &tbl) {
 }
 
 // Synthesizes a dummy row that hashes into a specific (partition, bin) pair.
-inline row_t make_dummy_row(uint32_t partitionId, uint32_t binId,
-                            uint32_t binsPerPartition) {
-  row_t dummy{};
-  // dummy.key = triple32(partitionId ^ (binId * 2654435761u));
-  // dummy.key = UINT32_MAX;
-  dummy.cntSelf = 0;
-  dummy.cntExpand = 0;
-  // dummy.idx = UINT32_MAX;
-  dummy.hashKey = (binId << NUM_RADIX_BITS) | partitionId;
-  // std::memset(dummy.pay, 0, DATA_LENGTH);
-  return dummy;
-}
-
-// Pads a table so every radix partition/bin pair has identical capacity
-static void padTableUniform(table_t &tbl, uint32_t binsPerPartition,
-                            uint32_t numThreads) {
-  // Number of top-level partitions (radix buckets for the high NUM_RADIX_BITS)
-  const uint32_t partitions = 1u << NUM_RADIX_BITS;
-  if (tbl.num_tuples == 0 || partitions == 0 || binsPerPartition == 0)
-    return;
-
-  // Total number of (partition, bin) pairs we must pad to a uniform size.
-  const uint64_t totalBins =
-      static_cast<uint64_t>(partitions) * binsPerPartition;
-  if (totalBins == 0)
-    return;
-
-  // Public cap from the analytical bound; ensures per-bin load meets the
-  // oblivious spill requirements even before we inspect actual data.
-  const uint32_t initialPerBin = static_cast<uint32_t>(
-      std::max(1, elemPerBucket(tbl.num_tuples, totalBins)));
-  if (initialPerBin == 0)
-    return;
-
-  const uint32_t partitionMask = partitions - 1u;
-  // For binsPerPartition that are powers of two we can use bit masks instead of
-  // slow modulo operations when extracting bin IDs from the hash.
-  const bool binsPowerOfTwo = (binsPerPartition & (binsPerPartition - 1u)) == 0;
-  const uint32_t binMask = binsPowerOfTwo ? (binsPerPartition - 1u) : 0;
-  // Break the input into slices so multiple threads can count their own
-  // histograms without sharing state or locks.
-  const uint32_t countingThreads =
-      std::max<uint32_t>(1, std::min<uint32_t>(numThreads, tbl.num_tuples));
-  auto countSlices =
-      buildSlices(static_cast<uint32_t>(tbl.num_tuples), countingThreads);
-  if (countSlices.empty())
-    return;
-
-  // Guard against overflow when allocating one histogram per slice.
-  if (totalBins > std::numeric_limits<size_t>::max() /
-                      std::max<size_t>(size_t{1}, countSlices.size())) {
-    throw std::bad_alloc();
-  }
-  // Each slice keeps a private histogram to avoid shared writes; we'll reduce
-  // them after the parallel pass.
-  const size_t histogramSize =
-      countSlices.size() * static_cast<size_t>(totalBins);
-  std::vector<uint32_t> localCounts(histogramSize, 0);
-
-  // Worker that counts how many rows within its slice fall into each
-  // (partition, bin) bucket. Uses AVX2 gather when the bin count is a power of
-  // two so we can process 8 rows per iteration without leaking branch
-  // decisions.
-  std::vector<uint32_t> binIndexTable(totalBins);
-  for (uint64_t idx = 0; idx < totalBins; ++idx)
-    binIndexTable[idx] = static_cast<uint32_t>(idx);
-
-  auto countWorker = [&](size_t tid) {
-    const Slice sl = countSlices[tid];
-    const row_t *rows = tbl.tuples + sl.begin;
-    const size_t len = sl.end - sl.begin;
-    uint32_t *local = localCounts.data() + tid * totalBins;
-    constexpr size_t kBlockSize = 64;
-    std::array<uint32_t, kBlockSize> blockBins{};
-    for (size_t blockStart = 0; blockStart < len; blockStart += kBlockSize) {
-      const size_t blockLen =
-          std::min(kBlockSize, static_cast<size_t>(len - blockStart));
-      for (size_t r = 0; r < blockLen; ++r) {
-        const row_t &row = rows[blockStart + r];
-        const uint32_t partId = row.hashKey & partitionMask;
-        uint32_t binId;
-        if (binsPowerOfTwo) {
-          binId = (row.hashKey >> NUM_RADIX_BITS) & binMask;
-        } else {
-          binId = (row.hashKey >> NUM_RADIX_BITS) % binsPerPartition;
-        }
-        blockBins[r] =
-            static_cast<uint32_t>(static_cast<uint64_t>(partId) * binsPerPartition +
-                                  binId);
-      }
-#if defined(__AVX2__)
-      const __m256i oneVec = _mm256_set1_epi32(1);
-      uint64_t idx = 0;
-      for (; idx + 8 <= totalBins; idx += 8) {
-        const __m256i ids = _mm256_loadu_si256(
-            reinterpret_cast<const __m256i *>(binIndexTable.data() + idx));
-        __m256i acc = _mm256_setzero_si256();
-        for (size_t r = 0; r < blockLen; ++r) {
-          const __m256i target =
-              _mm256_set1_epi32(static_cast<int>(blockBins[r]));
-          const __m256i mask = _mm256_cmpeq_epi32(ids, target);
-          acc = _mm256_add_epi32(acc, _mm256_and_si256(mask, oneVec));
-        }
-        __m256i counts = _mm256_loadu_si256(
-            reinterpret_cast<const __m256i *>(local + idx));
-        counts = _mm256_add_epi32(counts, acc);
-        _mm256_storeu_si256(reinterpret_cast<__m256i *>(local + idx), counts);
-      }
-      for (; idx < totalBins; ++idx) {
-        uint32_t acc = 0;
-        for (size_t r = 0; r < blockLen; ++r)
-          acc += (blockBins[r] == binIndexTable[idx]);
-        local[idx] += acc;
-      }
-#else
-      for (uint64_t idx = 0; idx < totalBins; ++idx) {
-        uint32_t acc = 0;
-        for (size_t r = 0; r < blockLen; ++r)
-          acc += (blockBins[r] == binIndexTable[idx]);
-        local[idx] += acc;
-      }
-#endif
-    }
-  };
-
-  // Launch threads (if needed) so each slice fills its histogram, then join.
-  if (countSlices.size() == 1) {
-    countWorker(0);
-  } else {
-    std::vector<std::thread> pool;
-    pool.reserve(countSlices.size() - 1);
-    for (size_t tid = 1; tid < countSlices.size(); ++tid)
-      pool.emplace_back(countWorker, tid);
-    countWorker(0);
-    for (auto &th : pool)
-      th.join();
-  }
-
-  // Combine per-slice histograms in parallel so each bin sum is independent.
-  std::vector<uint64_t> binCounts(totalBins, 0);
-  const uint32_t binThreadCount =
-      std::max<uint32_t>(1, std::min<uint32_t>(numThreads, totalBins));
-  auto binSlices =
-      buildSlices(static_cast<uint32_t>(totalBins), binThreadCount);
-  auto reduceWorker = [&](size_t tid) {
-    const Slice sl = binSlices[tid];
-    for (uint32_t b = sl.begin; b < sl.end; ++b) {
-      uint64_t sum = 0;
-      size_t offset = b;
-      for (size_t slice = 0; slice < countSlices.size(); ++slice) {
-        sum += localCounts[offset];
-        offset += totalBins;
-      }
-      binCounts[b] = sum;
-    }
-  };
-  if (binSlices.size() == 1) {
-    reduceWorker(0);
-  } else {
-    std::vector<std::thread> pool;
-    pool.reserve(binSlices.size() - 1);
-    for (size_t tid = 1; tid < binSlices.size(); ++tid)
-      pool.emplace_back(reduceWorker, tid);
-    reduceWorker(0);
-    for (auto &th : pool)
-      th.join();
-  }
-
-  std::cout << "ok\n";
-
-  // Final per-bin capacity: maximum of the analytical bound and the maximum
-  // load we observed. This guarantees we neither shrink real data nor reveal
-  // which bins were heavy.
-  // const uint32_t perBin =
-  //     static_cast<uint32_t>(std::max<uint64_t>(initialPerBin, maxBinLoad));
-  // const uint64_t targetSize = totalBins * static_cast<uint64_t>(perBin);
-  const uint32_t perBin = initialPerBin; // REMOVEEEEE
-  const uint64_t targetSize = totalBins * static_cast<uint64_t>(initialPerBin);
-  // {
-  //   auto &dbg = padDebugStream();
-  //   dbg << "[PAD] binsPerPartition=" << binsPerPartition
-  //       << " totalBins=" << totalBins << " perBin=" << perBin
-  //       << " current=" << tbl.num_tuples << " target=" << targetSize << '\n';
-  // }
-  if (tbl.num_tuples >= targetSize)
-    return;
-
-  // Allocate a new buffer sized exactly for the padded layout and copy over the
-  // real rows. The trailing portion will be filled with dummy rows next.
-  row_t *expanded = new row_t[targetSize];
-  if (tbl.num_tuples <= static_cast<uint32_t>(numThreads)) {
-    std::memcpy(expanded, tbl.tuples,
-                static_cast<size_t>(tbl.num_tuples) * sizeof(row_t));
-  } else {
-    auto copySlices = buildSlices(
-        tbl.num_tuples,
-        std::max<uint32_t>(1, std::min<uint32_t>(numThreads, tbl.num_tuples)));
-    auto copyWorker = [&](size_t tid) {
-      const Slice sl = copySlices[tid];
-      std::memcpy(expanded + sl.begin, tbl.tuples + sl.begin,
-                  static_cast<size_t>(sl.end - sl.begin) * sizeof(row_t));
-    };
-    std::vector<std::thread> pool;
-    pool.reserve(copySlices.size() > 0 ? copySlices.size() - 1 : 0);
-    for (size_t tid = 1; tid < copySlices.size(); ++tid)
-      pool.emplace_back(copyWorker, tid);
-    copyWorker(0);
-    for (auto &th : pool)
-      th.join();
-  }
-
-//   // For each bin remember how many dummies we still need and where their block
-//   // begins inside the expanded array.
-//   std::vector<uint32_t> deficits(totalBins);
-//   auto deficitWorker = [&](size_t tid) {
-//     const Slice sl = binSlices[tid];
-//     for (uint32_t idx = sl.begin; idx < sl.end; ++idx) {
-//       const uint32_t capped =
-//           static_cast<uint32_t>(std::min<uint64_t>(binCounts[idx], perBin));
-//       const uint32_t deficit = perBin - capped;
-//       deficits[idx] = deficit;
-//     }
-//   };
-//   if (binSlices.size() == 1) {
-//     deficitWorker(0);
-//   } else {
-//     std::vector<std::thread> pool;
-//     pool.reserve(binSlices.size() - 1);
-//     for (size_t tid = 1; tid < binSlices.size(); ++tid)
-//       pool.emplace_back(deficitWorker, tid);
-//     deficitWorker(0);
-//     for (auto &th : pool)
-//       th.join();
-//   }
-
-//   const uint64_t padStart = tbl.num_tuples;
-//   for (uint64_t padIdx = padStart; padIdx < targetSize; ++padIdx) {
-//     uint32_t chosenBin = 0;
-//     uint32_t alreadySelected = 0;
-// #if defined(__AVX2__)
-//     const __m256i zeroVec = _mm256_setzero_si256();
-//     const __m256i oneVec = _mm256_set1_epi32(1);
-//     uint64_t idx = 0;
-//     for (; idx + 8 <= totalBins; idx += 8) {
-//       __m256i defs = _mm256_loadu_si256(
-//           reinterpret_cast<const __m256i *>(deficits.data() + idx));
-//       __m256i hasDef = _mm256_cmpgt_epi32(defs, zeroVec);
-//       alignas(32) uint32_t maskBuf[8];
-//       _mm256_store_si256(reinterpret_cast<__m256i *>(maskBuf), hasDef);
-//       for (int lane = 0; lane < 8; ++lane) {
-//         const uint32_t b = static_cast<uint32_t>(idx + lane);
-//         const uint32_t hasDeficit =
-//             static_cast<uint32_t>(-static_cast<int32_t>(maskBuf[lane] != 0));
-//         const uint32_t select = hasDeficit & (~alreadySelected);
-//         chosenBin = (select & b) | (~select & chosenBin);
-//         alreadySelected |= hasDeficit;
-//       }
-//     }
-//     for (; idx < totalBins; ++idx) {
-//       const uint32_t hasDeficit =
-//           static_cast<uint32_t>(-static_cast<int32_t>(deficits[idx] != 0));
-//       const uint32_t select = hasDeficit & (~alreadySelected);
-//       chosenBin = (select & static_cast<uint32_t>(idx)) |
-//                   (~select & chosenBin);
-//       alreadySelected |= hasDeficit;
-//     }
-// #else
-//     for (uint32_t b = 0; b < totalBins; ++b) {
-//       const uint32_t hasDeficit =
-//           static_cast<uint32_t>(-static_cast<int32_t>(deficits[b] != 0));
-//       const uint32_t select = hasDeficit & (~alreadySelected);
-//       chosenBin = (select & b) | (~select & chosenBin);
-//       alreadySelected |= hasDeficit;
-//     }
-// #endif
-//     const uint32_t partId = chosenBin / binsPerPartition;
-//     const uint32_t binId = chosenBin - partId * binsPerPartition;
-//     row_t dummy = make_dummy_row(partId, binId, binsPerPartition);
-//     dummy.idx = static_cast<uint32_t>(padIdx);
-//     expanded[padIdx] = dummy;
-// #if defined(__AVX2__)
-//     idx = 0;
-//     const __m256i chosenVec = _mm256_set1_epi32(static_cast<int>(chosenBin));
-//     for (; idx + 8 <= totalBins; idx += 8) {
-//       __m256i ids = _mm256_loadu_si256(
-//           reinterpret_cast<const __m256i *>(binIndexTable.data() + idx));
-//       __m256i match = _mm256_cmpeq_epi32(ids, chosenVec);
-//       __m256i defs = _mm256_loadu_si256(
-//           reinterpret_cast<const __m256i *>(deficits.data() + idx));
-//       defs = _mm256_sub_epi32(defs, _mm256_and_si256(match, oneVec));
-//       _mm256_storeu_si256(reinterpret_cast<__m256i *>(deficits.data() + idx),
-//                           defs);
-//     }
-//     for (; idx < totalBins; ++idx) {
-//       const uint32_t isChosen =
-//           static_cast<uint32_t>(-static_cast<int32_t>(binIndexTable[idx] ==
-//                                                       chosenBin));
-//       deficits[idx] -= (isChosen & 1u);
-//     }
-// #else
-//     for (uint32_t b = 0; b < totalBins; ++b) {
-//       const uint32_t isChosen =
-//           static_cast<uint32_t>(-static_cast<int32_t>(binIndexTable[b] ==
-//                                                       chosenBin));
-//       deficits[b] -= (isChosen & 1u);
-//     }
-// #endif
-//   }
-
-//   delete[] tbl.tuples;
-//   tbl.tuples = expanded;
-//   tbl.num_tuples = targetSize;
-}
 
 static std::string toBinary(uint32_t value) {
   std::string out(32, '0');
@@ -701,23 +389,32 @@ int main(int argc, char *argv[]) {
     parallelCounts(R, slices_R, lastLen, mergeVal);
     dedupRStart = std::chrono::high_resolution_clock::now();
     replaceWithDummiesParallel(R, slices_R, SECRET);
-    padRStart = std::chrono::high_resolution_clock::now();
-    padTableUniform(R, bins, thrR);
-    padREnd = std::chrono::high_resolution_clock::now();
+    // padRStart = std::chrono::high_resolution_clock::now();
+    // padTableUniform(R, bins, thrR);
+    // padREnd = std::chrono::high_resolution_clock::now();
   });
   std::thread partitionS([&] {
     std::vector<int> lastLen(slices_S.size()), mergeVal(slices_S.size() - 1);
     parallelCounts(S, slices_S, lastLen, mergeVal);
     dedupSStart = std::chrono::high_resolution_clock::now();
     replaceWithDummiesParallel(S, slices_S, SECRET);
-    padSStart = std::chrono::high_resolution_clock::now();
-    padTableUniform(S, bins, thrS);
-    padSEnd = std::chrono::high_resolution_clock::now();
+    // padSStart = std::chrono::high_resolution_clock::now();
+    // padTableUniform(S, bins, thrS);
+    // padSEnd = std::chrono::high_resolution_clock::now();
   });
   partitionR.join();
   partitionS.join();
 
-  #ifndef PRE_SORTED
+  padSStart = std::chrono::high_resolution_clock::now();
+
+  padTableUniform(R, bins, numThreads);
+  padTableUniform(S, bins, numThreads);
+  padSEnd = std::chrono::high_resolution_clock::now();
+
+  // printOutput("R after padding", R);
+  // printOutput("S after padding", S);
+
+#ifndef PRE_SORTED
   double sortSec = std::chrono::duration_cast<std::chrono::duration<double>>(
                        sortEnd - tStart)
                        .count();
@@ -842,25 +539,29 @@ int main(int argc, char *argv[]) {
   printf("\nOnline: %f s\n", onSec);
   printf("\nOffline: %f s\n", sec - onSec);
 
-// #ifndef PRE_SORTED
-//   double sortSec = std::chrono::duration_cast<std::chrono::duration<double>>(
-//                        sortEnd - tStart)
-//                        .count();
-//   printf("\nSorting took %f s (%.2f%% of total execution time)\n", sortSec,
-//          (sortSec * 100.0 / sec));
-// #endif
+  // #ifndef PRE_SORTED
+  //   double sortSec =
+  //   std::chrono::duration_cast<std::chrono::duration<double>>(
+  //                        sortEnd - tStart)
+  //                        .count();
+  //   printf("\nSorting took %f s (%.2f%% of total execution time)\n", sortSec,
+  //          (sortSec * 100.0 / sec));
+  // #endif
 
-//   double dedupSec = std::chrono::duration_cast<std::chrono::duration<double>>(
-//                         (padSStart - dedupSStart) + (padRStart - dedupRStart))
-//                         .count();
-//   printf("\nDedup took %f s (%.2f%% of total execution time)\n", dedupSec,
-//          (dedupSec * 100.0 / sec));
+  //   double dedupSec =
+  //   std::chrono::duration_cast<std::chrono::duration<double>>(
+  //                         (padSStart - dedupSStart) + (padRStart -
+  //                         dedupRStart)) .count();
+  //   printf("\nDedup took %f s (%.2f%% of total execution time)\n", dedupSec,
+  //          (dedupSec * 100.0 / sec));
 
-//   double paddingSec = std::chrono::duration_cast<std::chrono::duration<double>>(
-//                           (padSEnd - padSStart) + (padREnd - padRStart))
-//                           .count();
-//   printf("\nPadding took %f s (%.2f%% of total execution time)\n", paddingSec,
-//          (paddingSec * 100.0 / sec));
+  //   double paddingSec =
+  //   std::chrono::duration_cast<std::chrono::duration<double>>(
+  //                           (padSEnd - padSStart) + (padREnd - padRStart))
+  //                           .count();
+  //   printf("\nPadding took %f s (%.2f%% of total execution time)\n",
+  //   paddingSec,
+  //          (paddingSec * 100.0 / sec));
 
   double shuffleSec = std::chrono::duration_cast<std::chrono::duration<double>>(
                           tShuffleEnd - tShuffleStart)
