@@ -356,9 +356,6 @@ int main(int argc, char *argv[]) {
   auto [bins, p] = findMaxBins(R.num_tuples / std::pow(2, NUM_RADIX_BITS));
   printf("Bins: %u, Lemma 1 p: %.4f\n", bins, p);
 
-  std::chrono::high_resolution_clock::time_point padRStart, padSStart, padREnd,
-      padSEnd, dedupRStart, dedupSStart;
-
 #ifndef PRE_SORTED
   total_num_threads = numThreads;
   thread_system_init();
@@ -382,55 +379,30 @@ int main(int argc, char *argv[]) {
   tStart = std::chrono::high_resolution_clock::now();
 #endif
 
-  // std::chrono::high_resolution_clock::time_point tStart =
-  //     std::chrono::high_resolution_clock::now();
-
   std::thread partitionR([&] {
     std::vector<int> lastLen(slices_R.size()), mergeVal(slices_R.size() - 1);
     parallelCounts(R, slices_R, lastLen, mergeVal);
-    dedupRStart = std::chrono::high_resolution_clock::now();
+    // dedupRStart = std::chrono::high_resolution_clock::now();
     replaceWithDummiesParallel(R, slices_R, SECRET);
-    // padRStart = std::chrono::high_resolution_clock::now();
-    // padTableUniform(R, bins, thrR);
-    // padREnd = std::chrono::high_resolution_clock::now();
   });
   std::thread partitionS([&] {
     std::vector<int> lastLen(slices_S.size()), mergeVal(slices_S.size() - 1);
     parallelCounts(S, slices_S, lastLen, mergeVal);
-    dedupSStart = std::chrono::high_resolution_clock::now();
+    // dedupSStart = std::chrono::high_resolution_clock::now();
     replaceWithDummiesParallel(S, slices_S, SECRET);
-    // padSStart = std::chrono::high_resolution_clock::now();
-    // padTableUniform(S, bins, thrS);
-    // padSEnd = std::chrono::high_resolution_clock::now();
   });
   partitionR.join();
   partitionS.join();
 
-  padSStart = std::chrono::high_resolution_clock::now();
-
+  std::chrono::high_resolution_clock::time_point padStart =
+      std::chrono::high_resolution_clock::now();
   padTableUniformNew(R, bins, numThreads);
   padTableUniformNew(S, bins, numThreads);
-  padSEnd = std::chrono::high_resolution_clock::now();
+  // std::chrono::high_resolution_clock::time_point padEnd =
+  // std::chrono::high_resolution_clock::now();
 
   // printOutput("R after padding", R);
   // printOutput("S after padding", S);
-
-#ifndef PRE_SORTED
-  double sortSec = std::chrono::duration_cast<std::chrono::duration<double>>(
-                       sortEnd - tStart)
-                       .count();
-  printf("\nSorting took %f s\n", sortSec);
-#endif
-
-  double dedupSec = std::chrono::duration_cast<std::chrono::duration<double>>(
-                        (padSStart - dedupSStart) + (padRStart - dedupRStart))
-                        .count();
-  printf("\nDedup took %f s\n", dedupSec);
-
-  double paddingSec = std::chrono::duration_cast<std::chrono::duration<double>>(
-                          (padSEnd - padSStart) + (padREnd - padRStart))
-                          .count();
-  printf("\nPadding took %f s\n", paddingSec);
 
   // std::chrono::high_resolution_clock::time_point padStart =
   //     std::chrono::high_resolution_clock::now();
@@ -482,6 +454,9 @@ int main(int argc, char *argv[]) {
   tbb::parallel_sort(R.tuples, R.tuples + R.num_tuples, cmp);
   tbb::parallel_sort(S.tuples, S.tuples + S.num_tuples, cmp);
 
+  std::chrono::high_resolution_clock::time_point nonOblSortEnd =
+      std::chrono::high_resolution_clock::now();
+
   // printOutput("R after shrinkTable", R);
   // printOutput("S after shrinkTable", S);
 
@@ -522,7 +497,12 @@ int main(int argc, char *argv[]) {
   processR.join();
   processS.join();
 
+  std::chrono::high_resolution_clock::time_point distEnd =
+      std::chrono::high_resolution_clock::now();
+
   alignTableParallel(S, buildSlices(m, numThreads), numThreads);
+  std::chrono::high_resolution_clock::time_point alignEnd =
+      std::chrono::high_resolution_clock::now();
   std::vector<JoinRec> joinResults;
   mergeExpandedParallel(R, S, numThreads, joinResults);
 
@@ -540,36 +520,6 @@ int main(int argc, char *argv[]) {
   printf("\nOnline: %f s\n", onSec);
   printf("\nOffline: %f s\n", sec - onSec);
 
-  // #ifndef PRE_SORTED
-  //   double sortSec =
-  //   std::chrono::duration_cast<std::chrono::duration<double>>(
-  //                        sortEnd - tStart)
-  //                        .count();
-  //   printf("\nSorting took %f s (%.2f%% of total execution time)\n", sortSec,
-  //          (sortSec * 100.0 / sec));
-  // #endif
-
-  //   double dedupSec =
-  //   std::chrono::duration_cast<std::chrono::duration<double>>(
-  //                         (padSStart - dedupSStart) + (padRStart -
-  //                         dedupRStart)) .count();
-  //   printf("\nDedup took %f s (%.2f%% of total execution time)\n", dedupSec,
-  //          (dedupSec * 100.0 / sec));
-
-  //   double paddingSec =
-  //   std::chrono::duration_cast<std::chrono::duration<double>>(
-  //                           (padSEnd - padSStart) + (padREnd - padRStart))
-  //                           .count();
-  //   printf("\nPadding took %f s (%.2f%% of total execution time)\n",
-  //   paddingSec,
-  //          (paddingSec * 100.0 / sec));
-
-  double shuffleSec = std::chrono::duration_cast<std::chrono::duration<double>>(
-                          tShuffleEnd - tShuffleStart)
-                          .count();
-  printf("\nOShuffle took %f s (%.2f%% of total execution time)\n", shuffleSec,
-         (shuffleSec * 100.0 / sec));
-
   double exchangeSec =
       std::chrono::duration_cast<std::chrono::duration<double>>(exchangeEnd -
                                                                 onStart)
@@ -577,6 +527,47 @@ int main(int argc, char *argv[]) {
   printf("\nPartitioning and exchanging counts took %f s (%.2f%% of total "
          "execution time)\n",
          exchangeSec, (exchangeSec * 100.0 / sec));
+
+  double nonOblSortSec =
+      std::chrono::duration_cast<std::chrono::duration<double>>(nonOblSortEnd -
+                                                                exchangeEnd)
+          .count();
+  printf("\nNon-oblivious sort took %f s (%.2f%% of online "
+         "execution time)\n",
+         nonOblSortSec, (nonOblSortSec * 100.0 / onSec));
+
+  double distSec = std::chrono::duration_cast<std::chrono::duration<double>>(
+                       distEnd - nonOblSortEnd)
+                       .count();
+  printf("\nBackfill dummies, Prefix calculation, and Dist & Expand took %f s (%.2f%% of online "
+         "execution time)\n",
+         distSec, (distSec * 100.0 / onSec));
+
+         double alignSec =
+      std::chrono::duration_cast<std::chrono::duration<double>>(alignEnd -
+                                                                distEnd)
+          .count();
+  printf("\nAlignment took %f s (%.2f%% of online "
+         "execution time)\n",
+         alignSec, (alignSec * 100.0 / onSec));
+
+#ifndef PRE_SORTED
+  double sortSec = std::chrono::duration_cast<std::chrono::duration<double>>(
+                       sortEnd - tStart)
+                       .count();
+  printf("\nSorting took %f s\n", sortSec);
+#endif
+
+  double paddingSec = std::chrono::duration_cast<std::chrono::duration<double>>(
+                          tShuffleStart - padStart) 
+                          .count();
+  printf("\nPadding took %f s\n", paddingSec);
+
+  double shuffleSec = std::chrono::duration_cast<std::chrono::duration<double>>(
+                          tShuffleEnd - tShuffleStart)
+                          .count();
+  printf("\nOShuffle took %f s (%.2f%% of total execution time)\n", shuffleSec,
+         (shuffleSec * 100.0 / sec));
 
   {
     std::ofstream outER("join.txt");

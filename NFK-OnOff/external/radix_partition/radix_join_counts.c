@@ -17,6 +17,33 @@
 typedef struct arg_t_radix arg_t_radix;
 typedef struct part_t part_t;
 
+static inline bool is_power_of_two_u32(uint32_t x) {
+  return x && ((x & (x - 1u)) == 0u);
+}
+
+static inline void rho_log_fallback(const char *where, const char *reason) {
+  static volatile int g_fallback_count = 0;
+  int n = __sync_fetch_and_add(&g_fallback_count, 1);
+  if (n < 32) {
+    fprintf(stderr, "[RHO][fallback] %s: %s\n", where, reason);
+  } else if (n == 32) {
+    fprintf(stderr, "[RHO][fallback] further messages suppressed\n");
+  }
+}
+
+static inline void ensure_u32_buffer(uint32_t **buf, size_t *cap,
+                                     size_t need) {
+  if (*cap >= need)
+    return;
+  size_t newcap = (*cap == 0) ? 1024 : *cap;
+  while (newcap < need)
+    newcap *= 2;
+  void *p = realloc(*buf, newcap * sizeof(uint32_t));
+  malloc_check(p);
+  *buf = (uint32_t *)p;
+  *cap = newcap;
+}
+
 /** holds the arguments passed to each thread */
 struct arg_t_radix {
   int32_t **histR;
@@ -133,6 +160,125 @@ int64_t bucket_chaining_join(const struct table_t *const R,
 }
 
 /**
+ * Optimized join-counts routine for the fixed-size (partition,bin) regime:
+ * - Each radix partition contains exactly `bins * U` tuples for some public U.
+ * - Each bin inside a radix partition contains exactly `U` tuples.
+ *
+ * In that case, we can group tuple indices by bin using fixed offsets (no
+ * histogram/prefix sum) and run a fixed-shape nested loop per bin. This avoids
+ * per-task malloc/free of hash-table structures and improves locality.
+ *
+ * If invariants don't hold at runtime, fall back to bucket_chaining_join().
+ */
+static int64_t bucket_chaining_join_fixed(const struct table_t *const R,
+                                         const struct table_t *const S,
+                                         struct table_t *const tmpR,
+                                         output_list_t **output, int bins) {
+  (void)tmpR;
+  (void)output;
+
+  if (bins <= 0)
+    return 0;
+  if (!is_power_of_two_u32((uint32_t)bins)) {
+    rho_log_fallback("bucket_chaining_join_fixed", "bins is not power-of-two");
+    return bucket_chaining_join(R, S, tmpR, output, bins);
+  }
+
+  const uint64_t numR = R->num_tuples;
+  const uint64_t numS = S->num_tuples;
+  const uint32_t ubins = (uint32_t)bins;
+
+  if (numR > (uint64_t)UINT32_MAX || numS > (uint64_t)UINT32_MAX) {
+    rho_log_fallback("bucket_chaining_join_fixed",
+                     "partition too large for 32-bit indexing");
+    return bucket_chaining_join(R, S, tmpR, output, bins);
+  }
+
+  if ((numR % ubins) != 0 || (numS % ubins) != 0) {
+    rho_log_fallback("bucket_chaining_join_fixed",
+                     "num{R,S} not divisible by bins");
+    return bucket_chaining_join(R, S, tmpR, output, bins);
+  }
+
+  const uint32_t U_R = (uint32_t)(numR / ubins);
+  const uint32_t U_S = (uint32_t)(numS / ubins);
+
+  const uint32_t MASK = (ubins - 1u) << (NUM_RADIX_BITS);
+
+  // Thread-local scratch to avoid per-task allocations.
+  static __thread uint32_t *idxR = NULL;
+  static __thread uint32_t *idxS = NULL;
+  static __thread uint32_t *posR = NULL;
+  static __thread uint32_t *posS = NULL;
+  static __thread size_t idxR_cap = 0;
+  static __thread size_t idxS_cap = 0;
+  static __thread size_t posR_cap = 0;
+  static __thread size_t posS_cap = 0;
+
+  ensure_u32_buffer(&idxR, &idxR_cap, (size_t)numR);
+  ensure_u32_buffer(&idxS, &idxS_cap, (size_t)numS);
+  ensure_u32_buffer(&posR, &posR_cap, (size_t)ubins);
+  ensure_u32_buffer(&posS, &posS_cap, (size_t)ubins);
+
+  for (uint32_t b = 0; b < ubins; ++b) {
+    posR[b] = b * U_R;
+    posS[b] = b * U_S;
+  }
+
+  const struct row_t *Rtuples = R->tuples;
+  const struct row_t *Stuples = S->tuples;
+
+  for (uint32_t i = 0; i < (uint32_t)numR; ++i) {
+    const uint32_t b =
+        HASH_BIT_MODULO(Rtuples[i].hashKey, MASK, NUM_RADIX_BITS);
+    idxR[posR[b]++] = i;
+  }
+  for (uint32_t i = 0; i < (uint32_t)numS; ++i) {
+    const uint32_t b =
+        HASH_BIT_MODULO(Stuples[i].hashKey, MASK, NUM_RADIX_BITS);
+    idxS[posS[b]++] = i;
+  }
+
+  // Validate that each bin received exactly U_{R,S} items; otherwise fallback.
+  for (uint32_t b = 0; b < ubins; ++b) {
+    if (posR[b] != (b + 1u) * U_R || posS[b] != (b + 1u) * U_S) {
+      rho_log_fallback("bucket_chaining_join_fixed",
+                       "bin fill mismatch (not fixed-size bins)");
+      return bucket_chaining_join(R, S, tmpR, output, bins);
+    }
+  }
+
+  // Now do fixed-shape probe per bin using the grouped index lists.
+  struct row_t *Rmut = (struct row_t *)R->tuples;
+  struct row_t *Smut = (struct row_t *)S->tuples;
+
+  for (uint32_t b = 0; b < ubins; ++b) {
+    const uint32_t baseR = b * U_R;
+    const uint32_t baseS = b * U_S;
+
+    for (uint32_t si = 0; si < U_S; ++si) {
+      const uint32_t sidx = idxS[baseS + si];
+      struct row_t *srow = &Smut[sidx];
+
+      for (uint32_t ri = 0; ri < U_R; ++ri) {
+        const uint32_t ridx = idxR[baseR + ri];
+        struct row_t *rrow = &Rmut[ridx];
+
+        const uint64_t match = -(rrow->cntSelf != 0) & -(srow->cntSelf != 0) &
+                               -(rrow->key == srow->key);
+
+        rrow->cntExpand =
+            (match & srow->cntSelf) | (~match & rrow->cntExpand);
+        srow->cntExpand =
+            (match & rrow->cntSelf) | (~match & srow->cntExpand);
+      }
+    }
+  }
+
+  return 0;
+}
+
+/**
  * Radix clustering algorithm (originally described by Manegold et al)
  * The algorithm mimics the 2-pass radix clustering algorithm from
  * Kim et al. The difference is that it does not compute
@@ -183,6 +329,25 @@ static void radix_cluster(struct table_t *outRel, struct table_t *inRel,
   }
 }
 
+static void radix_cluster_fixedsize(struct table_t *outRel,
+                                    const struct table_t *inRel, int R, int D,
+                                    uint64_t cluster_size,
+                                    uint32_t cluster_padding) {
+  const uint32_t fanOut = 1u << D;
+  const uint32_t M = ((1u << D) - 1u) << R;
+
+  uint64_t dst64[fanOut];
+  for (uint32_t i = 0; i < fanOut; ++i) {
+    dst64[i] = (uint64_t)i * (cluster_size + (uint64_t)cluster_padding);
+  }
+
+  for (uint64_t i = 0; i < inRel->num_tuples; i++) {
+    uint32_t idx = HASH_BIT_MODULO(inRel->tuples[i].hashKey, M, R);
+    outRel->tuples[dst64[idx]] = inRel->tuples[i];
+    ++dst64[idx];
+  }
+}
+
 /**
  * This function implements the radix clustering of a given input
  * relations. The relations to be clustered are defined in task_t and after
@@ -209,27 +374,47 @@ static void serial_radix_partition(task_t *const task, task_queue_t *join_queue,
 
   /* task_t t; */
   for (i = 0; i < fanOut; i++) {
-    if (outputR[i] > 0 && outputS[i] > 0) {
-      task_t *t = task_queue_get_slot_atomic(join_queue);
-      t->relR.num_tuples = outputR[i];
-      t->relR.tuples = task->tmpR.tuples + offsetR + i * SMALL_PADDING_TUPLES;
-      t->tmpR.tuples = task->relR.tuples + offsetR + i * SMALL_PADDING_TUPLES;
-      offsetR += outputR[i];
+    task_t *t = task_queue_get_slot_atomic(join_queue);
+    t->relR.num_tuples = outputR[i];
+    t->relR.tuples = task->tmpR.tuples + offsetR + i * SMALL_PADDING_TUPLES;
+    t->tmpR.tuples = task->relR.tuples + offsetR + i * SMALL_PADDING_TUPLES;
+    offsetR += outputR[i];
 
-      t->relS.num_tuples = outputS[i];
-      t->relS.tuples = task->tmpS.tuples + offsetS + i * SMALL_PADDING_TUPLES;
-      t->tmpS.tuples = task->relS.tuples + offsetS + i * SMALL_PADDING_TUPLES;
-      offsetS += outputS[i];
+    t->relS.num_tuples = outputS[i];
+    t->relS.tuples = task->tmpS.tuples + offsetS + i * SMALL_PADDING_TUPLES;
+    t->tmpS.tuples = task->relS.tuples + offsetS + i * SMALL_PADDING_TUPLES;
+    offsetS += outputS[i];
 
-      /* task_queue_copy_atomic(join_queue, &t); */
-      task_queue_add_atomic(join_queue, t);
-    } else {
-      offsetR += outputR[i];
-      offsetS += outputS[i];
-    }
+    task_queue_add_atomic(join_queue, t);
   }
   free(outputR);
   free(outputS);
+}
+
+static void serial_radix_partition_fixedsize(task_t *const task, const int R,
+                                            const int D) {
+  const uint32_t fanOut = 1u << D;
+  if (fanOut == 0u)
+    return;
+
+  if ((task->relR.num_tuples % fanOut) != 0u || (task->relS.num_tuples % fanOut) != 0u) {
+    int64_t *outputR = (int64_t *)calloc(fanOut + 1u, sizeof(int64_t));
+    int64_t *outputS = (int64_t *)calloc(fanOut + 1u, sizeof(int64_t));
+    malloc_check((void *)(outputR && outputS));
+    radix_cluster(&task->tmpR, &task->relR, outputR, R, D);
+    radix_cluster(&task->tmpS, &task->relS, outputS, R, D);
+    free(outputR);
+    free(outputS);
+    return;
+  }
+
+  const uint64_t clusterSizeR = task->relR.num_tuples / fanOut;
+  const uint64_t clusterSizeS = task->relS.num_tuples / fanOut;
+
+  radix_cluster_fixedsize(&task->tmpR, &task->relR, R, D, clusterSizeR,
+                          SMALL_PADDING_TUPLES);
+  radix_cluster_fixedsize(&task->tmpS, &task->relS, R, D, clusterSizeS,
+                          SMALL_PADDING_TUPLES);
 }
 
 /**
@@ -401,19 +586,17 @@ static void *prj_thread(void *param) {
       int32_t ntupR = outputR[i + 1] - outputR[i] - (int32_t)PADDING_TUPLES;
       int32_t ntupS = outputS[i + 1] - outputS[i] - (int32_t)PADDING_TUPLES;
 
-      if (ntupR > 0 && ntupS > 0) {
-        task_t *t = task_queue_get_slot(part_queue);
+      task_t *t = task_queue_get_slot(part_queue);
 
-        t->relR.num_tuples = t->tmpR.num_tuples = ntupR;
-        t->relR.tuples = args->tmpR + outputR[i];
-        t->tmpR.tuples = args->tmpR2 + outputR[i];
+      t->relR.num_tuples = t->tmpR.num_tuples = ntupR;
+      t->relR.tuples = args->tmpR + outputR[i];
+      t->tmpR.tuples = args->tmpR2 + outputR[i];
 
-        t->relS.num_tuples = t->tmpS.num_tuples = ntupS;
-        t->relS.tuples = args->tmpS + outputS[i];
-        t->tmpS.tuples = args->tmpS2 + outputS[i];
+      t->relS.num_tuples = t->tmpS.num_tuples = ntupS;
+      t->relS.tuples = args->tmpS + outputS[i];
+      t->tmpS.tuples = args->tmpS2 + outputS[i];
 
-        task_queue_add(part_queue, t);
-      }
+      task_queue_add(part_queue, t);
     }
 
     /* debug partitioning task queue */
@@ -435,8 +618,23 @@ static void *prj_thread(void *param) {
 
 #elif NUM_PASSES == 2
 
+  const uint32_t totalParts = 1u << NUM_RADIX_BITS;
+  const bool fixedParts =
+      totalParts != 0u && ((args->totalR % totalParts) == 0u) &&
+      ((args->totalS % totalParts) == 0u);
+  if (!fixedParts && my_tid == 0) {
+    rho_log_fallback("prj_thread",
+                     "fixed partition-size check failed; using join_queue");
+  }
+
   while ((task = task_queue_get_atomic(part_queue))) {
-    serial_radix_partition(task, join_queue, R, D);
+    if (fixedParts) {
+      serial_radix_partition_fixedsize(task, R, D);
+    } else {
+      rho_log_fallback("prj_thread",
+        "fixed partition-size check failed; using join_queue");
+      serial_radix_partition(task, join_queue, R, D);
+    }
   }
 
 #else
@@ -456,35 +654,85 @@ static void *prj_thread(void *param) {
 
   output_list_t *output;
 
-  while ((task = task_queue_get_atomic(join_queue))) {
-    // /* do the actual join. join method differs for different algorithms,
-    //    i.e. bucket chaining, histogram-based, histogram-based with simd &
-    //    prefetching  */
-    results += args->join_function(&task->relR, &task->relS, &task->tmpR,
-                                   &output, args->bins);
+  if (fixedParts) {
+    const uint32_t fanOut1 = 1u << (NUM_RADIX_BITS / NUM_PASSES);
+    const uint32_t highParts = 1u << (NUM_RADIX_BITS - (NUM_RADIX_BITS / NUM_PASSES));
+    const uint64_t pass1SizeR = args->totalR / (uint64_t)fanOut1;
+    const uint64_t pass1SizeS = args->totalS / (uint64_t)fanOut1;
+    const uint64_t partSizeR = args->totalR / (uint64_t)totalParts;
+    const uint64_t partSizeS = args->totalS / (uint64_t)totalParts;
 
-    /* Propagate changes back to original data using idx mapping */
-    for (uint32_t i = 0; i < task->relR.num_tuples; i++) {
-      // uint32_t orig_idx = task->relR.tuples[i].idx;
-      uint32_t orig_idx = task->relR.tuples[i].shuffledIdx;
-      if (orig_idx >= args->totalR) {
-        printf("ERROR: orig_idx %u out of bounds for R (size %lu)\n", orig_idx,
-               args->totalR);
-        exit(1);
+    for (uint32_t low = (uint32_t)my_tid; low < fanOut1;
+         low += (uint32_t)args->nthreads) {
+      const uint64_t baseR =
+          (uint64_t)low * (pass1SizeR + (uint64_t)PADDING_TUPLES);
+      const uint64_t baseS =
+          (uint64_t)low * (pass1SizeS + (uint64_t)PADDING_TUPLES);
+
+      for (uint32_t high = 0; high < highParts; ++high) {
+        const uint64_t offR =
+            baseR + (uint64_t)high * (partSizeR + (uint64_t)SMALL_PADDING_TUPLES);
+        const uint64_t offS =
+            baseS + (uint64_t)high * (partSizeS + (uint64_t)SMALL_PADDING_TUPLES);
+
+        struct table_t relRt;
+        struct table_t relSt;
+        struct table_t tmpRt;
+        relRt.tuples = args->tmpR2 + offR;
+        relRt.num_tuples = partSizeR;
+        relSt.tuples = args->tmpS2 + offS;
+        relSt.num_tuples = partSizeS;
+        tmpRt.tuples = NULL;
+        tmpRt.num_tuples = 0;
+
+        results += args->join_function(&relRt, &relSt, &tmpRt, &output, args->bins);
+
+        for (uint64_t i = 0; i < relRt.num_tuples; i++) {
+          uint32_t orig_idx = relRt.tuples[i].shuffledIdx;
+          if (orig_idx >= args->totalR) {
+            printf("ERROR: orig_idx %u out of bounds for R (size %lu)\n",
+                   orig_idx, args->totalR);
+            exit(1);
+          }
+          args->origRelR[orig_idx].cntExpand = relRt.tuples[i].cntExpand;
+        }
+        for (uint64_t i = 0; i < relSt.num_tuples; i++) {
+          uint32_t orig_idx = relSt.tuples[i].shuffledIdx;
+          if (orig_idx >= args->totalS) {
+            printf("ERROR: orig_idx %u out of bounds for S (size %lu)\n",
+                   orig_idx, args->totalS);
+            exit(1);
+          }
+          args->origRelS[orig_idx].cntExpand = relSt.tuples[i].cntExpand;
+        }
+        args->parts_processed++;
       }
-      args->origRelR[orig_idx].cntExpand = task->relR.tuples[i].cntExpand;
     }
-    for (uint32_t i = 0; i < task->relS.num_tuples; i++) {
-      // uint32_t orig_idx = task->relS.tuples[i].idx;
-      uint32_t orig_idx = task->relS.tuples[i].shuffledIdx;
-      if (orig_idx >= args->totalS) {
-        printf("ERROR: orig_idx %u out of bounds for S (size %lu)\n", orig_idx,
-               args->totalS);
-        exit(1);
+  } else {
+    while ((task = task_queue_get_atomic(join_queue))) {
+      results += args->join_function(&task->relR, &task->relS, &task->tmpR,
+                                     &output, args->bins);
+
+      for (uint32_t i = 0; i < task->relR.num_tuples; i++) {
+        uint32_t orig_idx = task->relR.tuples[i].shuffledIdx;
+        if (orig_idx >= args->totalR) {
+          printf("ERROR: orig_idx %u out of bounds for R (size %lu)\n", orig_idx,
+                 args->totalR);
+          exit(1);
+        }
+        args->origRelR[orig_idx].cntExpand = task->relR.tuples[i].cntExpand;
       }
-      args->origRelS[orig_idx].cntExpand = task->relS.tuples[i].cntExpand;
+      for (uint32_t i = 0; i < task->relS.num_tuples; i++) {
+        uint32_t orig_idx = task->relS.tuples[i].shuffledIdx;
+        if (orig_idx >= args->totalS) {
+          printf("ERROR: orig_idx %u out of bounds for S (size %lu)\n", orig_idx,
+                 args->totalS);
+          exit(1);
+        }
+        args->origRelS[orig_idx].cntExpand = task->relS.tuples[i].cntExpand;
+      }
+      args->parts_processed++;
     }
-    args->parts_processed++;
   }
 
   args->result = results;
@@ -639,5 +887,8 @@ static result_t *join_init_run(struct table_t *relR, struct table_t *relS,
 
 result_t *RHO(struct table_t *relR, struct table_t *relS, int nthreads,
               int bins) {
-  return join_init_run(relR, relS, bucket_chaining_join, nthreads, bins);
+  // With fixed-size partitions/bins (from the caller's padding stage), use the
+  // optimized join-counts kernel; otherwise it safely falls back.
+  // return join_init_run(relR, relS, bucket_chaining_join_fixed, nthreads, bins);
+    return join_init_run(relR, relS, bucket_chaining_join_fixed, nthreads, bins);
 }
