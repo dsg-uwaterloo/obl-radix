@@ -24,7 +24,7 @@
 #include "inputs.h"
 #include "merge.h"
 #include "oblivious_ops.h"
-// #include "pad_table_uniform.h"
+#include "pad_table_uniform_nested.h"
 #include "pad_table_uniform_new.h"
 #include "parallel_counts.h"
 #include "parallel_index.h"
@@ -398,6 +398,9 @@ int main(int argc, char *argv[]) {
       std::chrono::high_resolution_clock::now();
   padTableUniformNew(R, bins, numThreads);
   padTableUniformNew(S, bins, numThreads);
+  // padTableUniformNested(R, bins, numThreads);
+  // padTableUniformNested(S, bins, numThreads);
+
   // std::chrono::high_resolution_clock::time_point padEnd =
   // std::chrono::high_resolution_clock::now();
 
