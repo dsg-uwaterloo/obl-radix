@@ -211,15 +211,38 @@ inline void opartition_rec(row_t *rows, bool *selected, const Range &rng,
 }
 
 inline void retag_inserted_dummies(row_t *rows, std::uint32_t n, std::uint32_t U,
-                                  std::uint32_t lowMask) {
+                                  std::uint32_t lowMask,
+                                  std::uint32_t numThreads) {
+  numThreads = std::max<std::uint32_t>(1, numThreads);
   const std::uint32_t maxIdx = std::numeric_limits<std::uint32_t>::max();
-  for (std::uint32_t i = 0; i < n; ++i) {
-    const std::uint32_t isInserted = bool_to_u32(rows[i].idx == maxIdx);
-    const std::uint32_t bucketIndex = i / U; // 0..p-1
-    const std::uint32_t newHash =
-        (rows[i].hashKey & ~lowMask) | (bucketIndex & lowMask);
-    rows[i].hashKey = ct_select_u32(rows[i].hashKey, newHash, isInserted);
-  }
+
+  const std::uint32_t threads =
+      std::max<std::uint32_t>(1u, std::min<std::uint32_t>(numThreads, n));
+  const auto slices = buildSlices(n, threads);
+
+  parallel_slices_limited(threads, slices,
+                          [&](std::size_t /*sliceIndex*/, const Slice &sl) {
+    if (sl.begin >= sl.end)
+      return;
+
+    // Avoid division in the inner loop: bucketIndex == i / U.
+    // U is public and >= 1 in this code path.
+    std::uint32_t bucketIndex = sl.begin / U;
+    std::uint64_t nextBoundary = (static_cast<std::uint64_t>(bucketIndex) + 1ull) *
+                                 static_cast<std::uint64_t>(U);
+
+    for (std::uint32_t i = sl.begin; i < sl.end; ++i) {
+      if (static_cast<std::uint64_t>(i) == nextBoundary) {
+        ++bucketIndex;
+        nextBoundary += static_cast<std::uint64_t>(U);
+      }
+
+      const std::uint32_t isInserted = bool_to_u32(rows[i].idx == maxIdx);
+      const std::uint32_t newHash =
+          (rows[i].hashKey & ~lowMask) | (bucketIndex & lowMask);
+      rows[i].hashKey = ct_select_u32(rows[i].hashKey, newHash, isInserted);
+    }
+  });
 }
 
 } // namespace pad_table_uniform_new_detail
@@ -282,7 +305,7 @@ inline void padTableUniformNew(table_t &tbl, std::uint32_t bins,
   // After OPartition, inserted dummies are in arbitrary buckets (t=0). Retag them
   // to the bucket (partition,bin) implied by their final position so that radix
   // partitioning / bucket indexing sees uniform per-bucket sizes.
-  retag_inserted_dummies(tbl.tuples, finalN, U, lowMask);
+  retag_inserted_dummies(tbl.tuples, finalN, U, lowMask, numThreads);
 
 #ifndef NDEBUG
   {
