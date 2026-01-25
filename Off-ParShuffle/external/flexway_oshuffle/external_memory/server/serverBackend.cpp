@@ -6,7 +6,7 @@ EM::Backend::MemServerBackend* EM::Backend::g_DefaultBackend = nullptr;
 struct MemServerInstaller {
   MemServerInstaller() {
     // EM::Backend::g_DefaultBackend = new EM::Backend::MemServerBackend(1<<28);
-    EM::Backend::g_DefaultBackend = new EM::Backend::MemServerBackend(1 << 28);
+    EM::Backend::g_DefaultBackend = new EM::Backend::MemServerBackend(16ULL << 33);
   }
 };
 MemServerInstaller g_MemServerInstaller;

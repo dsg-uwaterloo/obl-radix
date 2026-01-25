@@ -38,7 +38,7 @@ extern "C" {
 #include "threading.h"
 }
 
-// #define PRE_SORTED // use this if your tables are already sorted
+#define PRE_SORTED // use this if your tables are already sorted
 
 // Global timer
 std::chrono::high_resolution_clock::time_point tStart, tEnd;
