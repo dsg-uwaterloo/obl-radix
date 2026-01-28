@@ -113,8 +113,8 @@ inline __m128i generateSecret() {
 }
 
 int main(int argc, char *argv[]) {
-  printf("[INFO] Set number of radix bits and passes in the top-level "
-         "CMakeLists.txt.\n");
+  printf("[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the "
+         "top-level CMakeLists.txt (or via -D... at CMake configure time).\n");
   std::uint32_t numThreads = 32;
   std::string inputPath = "../../datasets/real/amazon.txt";
 
@@ -214,9 +214,9 @@ int main(int argc, char *argv[]) {
   std::uint32_t m;
 
   printf("\nRadix bits: %u, Passes: %u\n", NUM_RADIX_BITS, NUM_PASSES);
-  const std::uint32_t bins = 32;
-  if (bins & (bins - 1u) != 0u) {
-    std::cerr << "Bins must be a power-of-two." << std::endl;
+  const std::uint32_t bins = BINS_PER_PART;
+  if ((bins == 0) || (bins & (bins - 1u)) != 0u) {
+    std::cerr << "Bins must be a non-zero power-of-two." << std::endl;
     return 1;
   }
   printf("Bins: %u\n", bins);

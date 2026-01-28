@@ -582,6 +582,16 @@ static void *prj_thread(void *param) {
   /************ 2nd pass of multi-pass partitioning ********************/
   /* 4. now each thread further partitions and add to join task queue **/
 
+#if NUM_PASSES == 2
+  const uint32_t totalParts = 1u << NUM_RADIX_BITS;
+  const bool fixedParts = totalParts != 0u &&
+                          ((args->totalR % totalParts) == 0u) &&
+                          ((args->totalS % totalParts) == 0u);
+#else
+  uint32_t totalParts = 0u;
+  bool fixedParts = false;
+#endif
+
 #if NUM_PASSES == 1
   /* If the partitioning is single pass we directly add tasks from pass-1 */
   task_queue_t *swap = join_queue;
@@ -591,10 +601,6 @@ static void *prj_thread(void *param) {
 
 #elif NUM_PASSES == 2
 
-  const uint32_t totalParts = 1u << NUM_RADIX_BITS;
-  const bool fixedParts = totalParts != 0u &&
-                          ((args->totalR % totalParts) == 0u) &&
-                          ((args->totalS % totalParts) == 0u);
   if (!fixedParts && my_tid == 0) {
     rho_log_fallback("prj_thread",
                      "fixed partition-size check failed; using join_queue");
@@ -866,7 +872,5 @@ result_t *RHO(struct table_t *relR, struct table_t *relS, int nthreads,
               int bins) {
   // With fixed-size partitions/bins (from the caller's padding stage), use the
   // optimized join-counts kernel; otherwise it safely falls back.
-  // return join_init_run(relR, relS, bucket_chaining_join_fixed, nthreads,
-  // bins);
   return join_init_run(relR, relS, bucket_chaining_join_fixed, nthreads, bins);
 }

@@ -14,6 +14,13 @@ find_package(TBB REQUIRED)
 find_package(OpenMP REQUIRED)
 
 # ------------------------------------------------------------------------------
+# Tunables (compile-time constants)
+# ------------------------------------------------------------------------------
+set(BINS_PER_PART 32 CACHE STRING "Number of bins per partition (power-of-two)")
+set(NUM_RADIX_BITS 10 CACHE STRING "Radix bits per pass")
+set(NUM_PASSES 2 CACHE STRING "Number of radix passes")
+
+# ------------------------------------------------------------------------------
 # External implementations
 # ------------------------------------------------------------------------------
 # Add bitonic sort implementation
@@ -40,11 +47,12 @@ target_sources(OblRadix PRIVATE
     external/flexway_oshuffle/external_memory/server/serverBackend.cpp)
 
 target_compile_options(OblRadix PRIVATE -pthread)
+target_compile_definitions(OblRadix PRIVATE BINS_PER_PART=${BINS_PER_PART})
 
 # Set radix fan-out
 target_compile_definitions(radix_partition PUBLIC 
-    NUM_RADIX_BITS=10
-    NUM_PASSES=2)
+    NUM_RADIX_BITS=${NUM_RADIX_BITS}
+    NUM_PASSES=${NUM_PASSES})
 
 # Link against all required libraries
 target_link_libraries(OblRadix PRIVATE 
