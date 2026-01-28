@@ -5,6 +5,9 @@
 #include "prj_params.h"
 #include "task_queue.h"
 #include "util.h"
+#if defined(ENABLE_AVX2_GATHER_JOIN) && defined(__AVX2__)
+#include <immintrin.h>
+#endif
 #include <math.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -39,6 +42,17 @@ static inline void ensure_u32_buffer(uint32_t **buf, size_t *cap, size_t need) {
   *buf = (uint32_t *)p;
   *cap = newcap;
 }
+
+#if defined(ENABLE_AVX2_GATHER_JOIN) && defined(__AVX2__)
+static inline uint32_t horizontal_or_u32x8(__m256i v) {
+  __m128i lo = _mm256_castsi256_si128(v);
+  __m128i hi = _mm256_extracti128_si256(v, 1);
+  __m128i x = _mm_or_si128(lo, hi);
+  x = _mm_or_si128(x, _mm_srli_si128(x, 8));
+  x = _mm_or_si128(x, _mm_srli_si128(x, 4));
+  return (uint32_t)_mm_cvtsi128_si32(x);
+}
+#endif
 
 /** holds the arguments passed to each thread */
 struct arg_t_radix {
@@ -235,15 +249,97 @@ static int64_t bucket_chaining_join_fixed(const struct table_t *const R,
       const uint32_t sidx = idxS[baseS + si];
       struct row_t *srow = &Smut[sidx];
 
+      const uint32_t sKey = srow->key;
+      const uint32_t sCntSelf = srow->cntSelf;
+      uint32_t sExpand = srow->cntExpand;
+
+#if defined(ENABLE_AVX2_GATHER_JOIN) && defined(__AVX2__)
+      const __m256i vZero = _mm256_setzero_si256();
+      const __m256i vAllOnes = _mm256_cmpeq_epi32(vZero, vZero);
+      const __m256i vOne = _mm256_set1_epi32(1);
+      const __m256i vTwo = _mm256_set1_epi32(2);
+      const __m256i vSKey = _mm256_set1_epi32((int)sKey);
+      const __m256i vSCntSelf = _mm256_set1_epi32((int)sCntSelf);
+      const __m256i vSReal = (sCntSelf != 0u) ? vAllOnes : vZero;
+
+      // View tuples as a packed uint32_t stream so gather can address fields by
+      // "word index" (row_t is 32 bytes = 8 words).
+      typedef int i32_may_alias __attribute__((may_alias));
+      const i32_may_alias *baseWordsAlias = (const i32_may_alias *)(const void *)Rmut;
+      const int *baseWords = (const int *)baseWordsAlias;
+
+      __m256i acc = vZero;
+      uint32_t hit = 0;
+
+      uint32_t ri = 0;
+      for (; ri + 8u <= U_R; ri += 8u) {
+        const uint32_t *idxPtr = &idxR[baseR + ri];
+        const __m256i vRidx = _mm256_loadu_si256((const __m256i *)idxPtr);
+        const __m256i vBaseWord = _mm256_slli_epi32(vRidx, 3); // ridx * 8
+
+        const __m256i vKeyWord = vBaseWord; // +0
+        const __m256i vSelfWord = _mm256_add_epi32(vBaseWord, vOne);
+        const __m256i vExpWord = _mm256_add_epi32(vBaseWord, vTwo);
+
+        const __m256i vRKey = _mm256_i32gather_epi32(baseWords, vKeyWord, 4);
+        const __m256i vRCntSelf =
+            _mm256_i32gather_epi32(baseWords, vSelfWord, 4);
+        const __m256i vRCntExpandOld =
+            _mm256_i32gather_epi32(baseWords, vExpWord, 4);
+
+        const __m256i vEq = _mm256_cmpeq_epi32(vRKey, vSKey);
+        const __m256i vRIsZero = _mm256_cmpeq_epi32(vRCntSelf, vZero);
+        const __m256i vRReal = _mm256_andnot_si256(vRIsZero, vAllOnes);
+        const __m256i vMatch =
+            _mm256_and_si256(_mm256_and_si256(vEq, vRReal), vSReal);
+
+        const __m256i vRCntExpandNew =
+            _mm256_blendv_epi8(vRCntExpandOld, vSCntSelf, vMatch);
+
+        // Write back R.cntExpand for these 8 ridx lanes using scalar stores
+        // (AVX2 has no scatter).
+        uint32_t expandedNew[8];
+        _mm256_storeu_si256((__m256i *)expandedNew, vRCntExpandNew);
+        for (uint32_t lane = 0; lane < 8u; ++lane) {
+          const uint32_t ridx = idxPtr[lane];
+          Rmut[ridx].cntExpand = expandedNew[lane];
+        }
+
+        // Accumulate candidate = match ? rCntSelf : 0.
+        acc = _mm256_or_si256(acc, _mm256_and_si256(vMatch, vRCntSelf));
+      }
+
+      hit |= horizontal_or_u32x8(acc);
+
+      // Scalar tail (kept branchless).
+      for (; ri < U_R; ++ri) {
+        const uint32_t ridx = idxR[baseR + ri];
+        struct row_t *rrow = &Rmut[ridx];
+
+        const uint32_t match32 =
+            (uint32_t)-(rrow->cntSelf != 0u) & (uint32_t)-(sCntSelf != 0u) &
+            (uint32_t)-(rrow->key == sKey);
+        rrow->cntExpand =
+            (match32 & sCntSelf) | (~match32 & rrow->cntExpand);
+        hit |= (match32 & rrow->cntSelf);
+      }
+
+      const uint32_t hasHit = (uint32_t)-(hit != 0u);
+      sExpand = (hasHit & hit) | (~hasHit & sExpand);
+      srow->cntExpand = sExpand;
+
+#else
       for (uint32_t ri = 0; ri < U_R; ++ri) {
         const uint32_t ridx = idxR[baseR + ri];
         struct row_t *rrow = &Rmut[ridx];
 
-        const uint64_t match = -(rrow->cntSelf != 0) & -(srow->cntSelf != 0) &
-                               -(rrow->key == srow->key);
-        rrow->cntExpand = (match & srow->cntSelf) | (~match & rrow->cntExpand);
-        srow->cntExpand = (match & rrow->cntSelf) | (~match & srow->cntExpand);
+        const uint64_t match = -(rrow->cntSelf != 0) & -(sCntSelf != 0) &
+                               -(rrow->key == sKey);
+        rrow->cntExpand = (match & sCntSelf) | (~match & rrow->cntExpand);
+        sExpand = (match & rrow->cntSelf) | (~match & sExpand);
       }
+      srow->cntExpand = sExpand;
+#endif
     }
   }
 

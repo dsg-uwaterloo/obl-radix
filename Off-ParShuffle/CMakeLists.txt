@@ -16,9 +16,10 @@ find_package(OpenMP REQUIRED)
 # ------------------------------------------------------------------------------
 # Tunables (compile-time constants)
 # ------------------------------------------------------------------------------
-set(BINS_PER_PART 32 CACHE STRING "Number of bins per partition (power-of-two)")
+set(BINS_PER_PART 32 CACHE STRING "Number of bins per partition")
 set(NUM_RADIX_BITS 10 CACHE STRING "Radix bits per pass")
 set(NUM_PASSES 2 CACHE STRING "Number of radix passes")
+option(ENABLE_AVX2_GATHER_JOIN "Enable AVX2 gather path radix_partition" ON)
 
 # ------------------------------------------------------------------------------
 # External implementations
@@ -53,6 +54,10 @@ target_compile_definitions(OblRadix PRIVATE BINS_PER_PART=${BINS_PER_PART})
 target_compile_definitions(radix_partition PUBLIC 
     NUM_RADIX_BITS=${NUM_RADIX_BITS}
     NUM_PASSES=${NUM_PASSES})
+
+if (ENABLE_AVX2_GATHER_JOIN)
+  target_compile_definitions(radix_partition PUBLIC ENABLE_AVX2_GATHER_JOIN=1)
+endif()
 
 # Link against all required libraries
 target_link_libraries(OblRadix PRIVATE 
