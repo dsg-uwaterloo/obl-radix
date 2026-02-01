@@ -468,10 +468,10 @@ public:
         m.hashKey &= lowMask_;
         m.idx = ct_select_u32(std::numeric_limits<std::uint32_t>::max(), m.idx,
                               keep);
-        m.cntSelf = 0u;
-        m.key = 0u;
-        m.shuffledIdx = 0u;
-        std::memset(m.pay, 0, sizeof(m.pay));
+        // m.cntSelf = 0u;
+        // m.key = 0u;
+        // m.shuffledIdx = 0u;
+        // std::memset(m.pay, 0, sizeof(m.pay));
         dummyWork_[i] = m;
       }
     });
@@ -486,12 +486,12 @@ public:
     parallel_slices(need, numThreads_, [&](const Slice &sl) {
       for (std::uint32_t i = sl.begin; i < sl.end; ++i) {
         dummyWork_[i].idx = std::numeric_limits<std::uint32_t>::max();
-        dummyWork_[i].cntSelf = 0u;
+        // dummyWork_[i].cntSelf = 0u;
         dummyWork_[i].cntExpand = 0u;
         dummyWork_[i].hashKey &= lowMask_;
-        dummyWork_[i].key = 0u;
-        dummyWork_[i].shuffledIdx = 0u;
-        std::memset(dummyWork_[i].pay, 0, sizeof(dummyWork_[i].pay));
+        // dummyWork_[i].key = 0u;
+        // dummyWork_[i].shuffledIdx = 0u;
+        // std::memset(dummyWork_[i].pay, 0, sizeof(dummyWork_[i].pay));
       }
     });
 

@@ -368,6 +368,21 @@ inline void padTableUniformBin(table_t &tbl, std::uint32_t bins,
   // radix partitioning / bucket indexing sees uniform per-bucket sizes.
   retag_inserted_dummies(tbl.tuples, finalN, U, lowMask, numThreads);
 
+  // Pack all real rows (idx != UINT32_MAX) to the front so that
+  // padded dummies occupy a suffix of the table.
+  {
+    const std::uint32_t maxIdx = std::numeric_limits<std::uint32_t>::max();
+    const std::uint32_t threads =
+        std::max<std::uint32_t>(1u, std::min<std::uint32_t>(numThreads, finalN));
+    const auto slices = buildSlices(finalN, threads);
+    parallel_slices_limited(
+        threads, slices, [&](std::size_t /*sliceIndex*/, const Slice &sl) {
+          for (std::uint32_t i = sl.begin; i < sl.end; ++i)
+            selected[i] = (tbl.tuples[i].idx != maxIdx);
+        });
+    obli_compact_rows(tbl.tuples, selected.get(), finalN, numThreads);
+  }
+
   // #ifndef NDEBUG
   //   {
   //     const std::uint32_t p = static_cast<std::uint32_t>(totalBins64);
