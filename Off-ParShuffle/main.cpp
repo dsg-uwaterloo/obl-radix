@@ -24,7 +24,7 @@
 #include "inputs.h"
 #include "merge.h"
 #include "oblivious_ops.h"
-#include "pad_table_uniform_bin.h"
+#include "pad_table_sort.h"
 #include "parallel_counts.h"
 #include "parallel_index.h"
 #include "prefix_sum_expand.h"
@@ -38,7 +38,7 @@ extern "C" {
 #include "threading.h"
 }
 
-#define PRE_SORTED // use this if your tables are already sorted
+// #define PRE_SORTED // use this if your tables are already sorted
 
 // Global timer
 std::chrono::high_resolution_clock::time_point tStart, tEnd;
@@ -259,8 +259,16 @@ int main(int argc, char *argv[]) {
 
   std::chrono::high_resolution_clock::time_point padStart =
       std::chrono::high_resolution_clock::now();
-  padTableUniformBin(R, bins, numThreads);
-  padTableUniformBin(S, bins, numThreads);
+// #if defined(USE_PAD_TABLE_SORT)
+  {
+    PadTableSortContext padCtx(bins, numThreads);
+    padCtx.pad(R);
+    padCtx.pad(S);
+  }
+// #else
+//   padTableSort(R, bins, numThreads);
+//   padTableSort(S, bins, numThreads);
+// #endif
 
   // printf("Padded R size = %u\n", R.num_tuples);
   // printf("Padded S size = %u\n", S.num_tuples);

@@ -5,7 +5,7 @@
 #include "prj_params.h"
 #include "task_queue.h"
 #include "util.h"
-#if defined(ENABLE_AVX2_GATHER_JOIN) && defined(__AVX2__)
+#if defined(__AVX2__)
 #include <immintrin.h>
 #endif
 #include <math.h>
@@ -43,7 +43,7 @@ static inline void ensure_u32_buffer(uint32_t **buf, size_t *cap, size_t need) {
   *cap = newcap;
 }
 
-#if defined(ENABLE_AVX2_GATHER_JOIN) && defined(__AVX2__)
+#if defined(__AVX2__)
 static inline uint32_t horizontal_or_u32x8(__m256i v) {
   __m128i lo = _mm256_castsi256_si128(v);
   __m128i hi = _mm256_extracti128_si256(v, 1);
@@ -253,7 +253,7 @@ static int64_t bucket_chaining_join_fixed(const struct table_t *const R,
       const uint32_t sCntSelf = srow->cntSelf;
       uint32_t sExpand = srow->cntExpand;
 
-#if defined(ENABLE_AVX2_GATHER_JOIN) && defined(__AVX2__)
+#if defined(__AVX2__)
       const __m256i vZero = _mm256_setzero_si256();
       const __m256i vAllOnes = _mm256_cmpeq_epi32(vZero, vZero);
       const __m256i vOne = _mm256_set1_epi32(1);

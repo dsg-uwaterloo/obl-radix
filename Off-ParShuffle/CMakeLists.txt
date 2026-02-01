@@ -56,7 +56,7 @@ target_compile_definitions(radix_partition PUBLIC
     NUM_PASSES=${NUM_PASSES})
 
 if (ENABLE_AVX2_GATHER_JOIN)
-  target_compile_definitions(radix_partition PUBLIC ENABLE_AVX2_GATHER_JOIN=1)
+  target_compile_definitions(radix_partition PUBLIC)
 endif()
 
 # Link against all required libraries

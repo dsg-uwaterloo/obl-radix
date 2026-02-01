@@ -17,18 +17,29 @@
 
 static bool dimension2D;
 static elem_t *arr;
+static bool compare_hash_lowbits;
+static uint32_t hash_lowbits_mask;
 
 bool compare2D(elem_t* a, elem_t* b) {
-    bool c;
-    c = (a->key < b->key) || (dimension2D && (a->key == b->key) && (a->idx < b->idx));
-    // c = (a->key < b->key) || (dimension2D && (a->key == b->key) && (a->j_order < b->j_order));
-    return c;
+    // IMPORTANT: avoid touching hashKey unless we are explicitly in the
+    // hash-lowbits mode. This keeps the "key sort" path minimal.
+    if (!compare_hash_lowbits) {
+        return (a->key < b->key) ||
+               (dimension2D && (a->key == b->key) && (a->idx < b->idx));
+    }
+    const uint32_t ka = a->hashKey & hash_lowbits_mask;
+    const uint32_t kb = b->hashKey & hash_lowbits_mask;
+    return (ka < kb) || ((ka == kb) && (a->idx < b->idx));
 }
 
 bool compare2D_(int a, int b) {
-    bool c;
-    c = (arr[a].key < arr[b].key) || (dimension2D && (arr[a].key == arr[b].key) && (arr[a].idx < arr[b].idx));
-    return c;
+    if (!compare_hash_lowbits) {
+        return (arr[a].key < arr[b].key) ||
+               (dimension2D && (arr[a].key == arr[b].key) && (arr[a].idx < arr[b].idx));
+    }
+    const uint32_t ka = arr[a].hashKey & hash_lowbits_mask;
+    const uint32_t kb = arr[b].hashKey & hash_lowbits_mask;
+    return (ka < kb) || ((ka == kb) && (arr[a].idx < arr[b].idx));
 }
 
 inline int prev_pow_two(int x) {
@@ -232,6 +243,8 @@ void bitonic_sort_(elem_t *arr_, bool ascend, int lo, int hi, int number_threads
 
     arr = arr_;
     dimension2D = D2enable;
+    compare_hash_lowbits = false;
+    hash_lowbits_mask = 0xffffffffu;
     struct bitonic_merge_args_1 args = {
         .ascend = ascend,
         .lo = lo,
@@ -241,4 +254,20 @@ void bitonic_sort_(elem_t *arr_, bool ascend, int lo, int hi, int number_threads
     bitonic_sort_new(&args);
 
     return;
+}
+
+void bitonic_sort_hashkey_lowbits_(elem_t *arr_, bool ascend, int lo, int hi,
+                                  int number_threads, unsigned total_bits) {
+    arr = arr_;
+    dimension2D = true;
+    compare_hash_lowbits = true;
+    hash_lowbits_mask = (total_bits >= 32u) ? 0xffffffffu : ((1u << total_bits) - 1u);
+
+    struct bitonic_merge_args_1 args = {
+        .ascend = ascend,
+        .lo = lo,
+        .hi = hi,
+        .number_threads = number_threads,
+    };
+    bitonic_sort_new(&args);
 }
