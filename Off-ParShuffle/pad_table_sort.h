@@ -349,22 +349,15 @@ public:
 
     // Pre-build one header row per bucket. This is reused for R and S.
     bucketHeaders_.resize(p_);
-    row_t header{};
-    header.idx = std::numeric_limits<std::uint32_t>::max();
-    header.cntSelf = 0;
-    header.cntExpand = 0;
-    header.shuffledIdx = 0;
-    header.key = 0;
-    std::memset(header.pay, 0, sizeof(header.pay));
-
-    pad_table_sort_detail::parallel_slices(
-        p_, numThreads_, [&](const Slice &sl) {
-          for (std::uint32_t i = sl.begin; i < sl.end; ++i) {
-            row_t h = header;
-            h.hashKey = i & lowMask_;
-            bucketHeaders_[i] = h;
-          }
-        });
+    std::memset(bucketHeaders_.data(), 0,
+                static_cast<std::size_t>(p_) * sizeof(row_t));
+    pad_table_sort_detail::parallel_slices(p_, numThreads_, [&](const Slice &sl) {
+      const std::uint32_t maxIdx = std::numeric_limits<std::uint32_t>::max();
+      for (std::uint32_t i = sl.begin; i < sl.end; ++i) {
+        bucketHeaders_[i].idx = maxIdx;
+        bucketHeaders_[i].hashKey = i & lowMask_;
+      }
+    });
 
     // Scratch that depends only on p.
     headers_.resize(p_);
@@ -458,18 +451,12 @@ public:
     if (dummyWork_.size() < static_cast<std::size_t>(L))
       dummyWork_.resize(L);
 
-    row_t dummy{};
-    dummy.idx = std::numeric_limits<std::uint32_t>::max();
-    dummy.cntSelf = 0;
-    dummy.cntExpand = 0;
-    dummy.hashKey = 0;
-    dummy.shuffledIdx = 0;
-    dummy.key = 0;
-    std::memset(dummy.pay, 0, sizeof(dummy.pay));
-
+    // Bulk zero-fill then set the one non-zero dummy tag field (idx).
+    std::memset(dummyWork_.data(), 0, static_cast<std::size_t>(L) * sizeof(row_t));
     parallel_slices(L, numThreads_, [&](const Slice &sl) {
+      const std::uint32_t maxIdx = std::numeric_limits<std::uint32_t>::max();
       for (std::uint32_t i = sl.begin; i < sl.end; ++i)
-        dummyWork_[i] = dummy;
+        dummyWork_[i].idx = maxIdx;
     });
 
     parallel_slices(p_, numThreads_, [&](const Slice &sl) {

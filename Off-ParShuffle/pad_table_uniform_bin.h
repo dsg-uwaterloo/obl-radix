@@ -15,7 +15,7 @@
 #include "oblivious_ops.h"
 #include "slice_utils.h"
 
-constexpr double kSecParam = 64.0;
+constexpr double kSecParam = 40.0;
 
 inline double lambert_w0(double x) {
   const double lower = -1.0 / M_E;
