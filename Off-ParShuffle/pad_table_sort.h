@@ -10,8 +10,8 @@
 #include <thread>
 #include <vector>
 
-#include "external/radix_partition/data-types.h"
 #include "carry_forward.h"
+#include "external/radix_partition/data-types.h"
 #include "oblivious_ops.h"
 #include "prefix_sum_expand.h"
 #include "slice_utils.h"
@@ -37,10 +37,6 @@ inline std::uint32_t ct_select_u32(std::uint32_t a, std::uint32_t b,
                                    std::uint32_t sel01) {
   const std::uint32_t mask = ct_mask_u32(sel01); // 0x00000000 or 0xffffffff
   return (a & ~mask) | (b & mask);
-}
-
-inline bool is_power_of_two(std::uint32_t x) {
-  return x && ((x & (x - 1u)) == 0);
 }
 
 inline std::uint32_t log2_pow2(std::uint32_t x) {
@@ -267,7 +263,8 @@ inline void bucketRunCountsParallel(row_t *rows, std::uint32_t n,
             rows[slices[t - 1].end - 1u].hashKey & lowMask;
         const std::uint32_t match = 0u - bool_to_u32(first == last);
         mergeVal[t - 1u] = match & lastLen[t - 1u];
-        const std::size_t idx = static_cast<std::size_t>(slices[t - 1].end) - 1u;
+        const std::size_t idx =
+            static_cast<std::size_t>(slices[t - 1].end) - 1u;
         rows[idx].cntExpand = (~match) & rows[idx].cntExpand;
       });
     }
@@ -287,8 +284,7 @@ inline void bucketRunCountsParallel(row_t *rows, std::uint32_t n,
         const std::uint32_t first = rows[slices[i].begin].hashKey & lowMask;
         std::uint32_t acc = 0;
         for (std::size_t j = 0; j < i - 1; ++j) {
-          const std::uint32_t last =
-              rows[slices[j].end - 1u].hashKey & lowMask;
+          const std::uint32_t last = rows[slices[j].end - 1u].hashKey & lowMask;
           const std::uint32_t match = 0u - bool_to_u32(first == last);
           acc += match & lastLen[j];
         }
@@ -335,9 +331,6 @@ public:
       : bins_(bins), numThreads_(std::max<std::uint32_t>(1u, numThreads)),
         pool_(numThreads_) {
     using namespace pad_table_sort_detail;
-    if (!is_power_of_two(bins_))
-      throw std::runtime_error("PadTableSortContext: bins must be power-of-two");
-
     constexpr std::uint32_t rBits = NUM_RADIX_BITS;
     const std::uint32_t bBits = log2_pow2(bins_);
     totalBits_ = rBits + bBits;
@@ -351,13 +344,15 @@ public:
     bucketHeaders_.resize(p_);
     std::memset(bucketHeaders_.data(), 0,
                 static_cast<std::size_t>(p_) * sizeof(row_t));
-    pad_table_sort_detail::parallel_slices(p_, numThreads_, [&](const Slice &sl) {
-      const std::uint32_t maxIdx = std::numeric_limits<std::uint32_t>::max();
-      for (std::uint32_t i = sl.begin; i < sl.end; ++i) {
-        bucketHeaders_[i].idx = maxIdx;
-        bucketHeaders_[i].hashKey = i & lowMask_;
-      }
-    });
+    pad_table_sort_detail::parallel_slices(
+        p_, numThreads_, [&](const Slice &sl) {
+          const std::uint32_t maxIdx =
+              std::numeric_limits<std::uint32_t>::max();
+          for (std::uint32_t i = sl.begin; i < sl.end; ++i) {
+            bucketHeaders_[i].idx = maxIdx;
+            bucketHeaders_[i].hashKey = i & lowMask_;
+          }
+        });
 
     // Scratch that depends only on p.
     headers_.resize(p_);
@@ -376,19 +371,19 @@ public:
     const std::uint64_t N64 = tbl.num_tuples;
     if (N64 >
         static_cast<std::uint64_t>(std::numeric_limits<std::uint32_t>::max()))
-      throw std::runtime_error("padTableSort: input too large for current impl");
+      throw std::runtime_error(
+          "padTableSort: input too large for current impl");
     const std::uint32_t N = static_cast<std::uint32_t>(N64);
 
-    const std::uint32_t U =
-        std::max<std::uint32_t>(1u, elemPerBucket(N64, p_));
+    const std::uint32_t U = std::max<std::uint32_t>(1u, elemPerBucket(N64, p_));
     const std::uint64_t finalN64 = static_cast<std::uint64_t>(p_) * U;
     if (finalN64 < N64)
       throw std::runtime_error("padTableSort: overflow in finalN");
     const std::uint64_t need64 = finalN64 - N64;
     if (need64 == 0)
       return;
-    if (need64 > static_cast<std::uint64_t>(
-                     std::numeric_limits<std::uint32_t>::max()))
+    if (need64 >
+        static_cast<std::uint64_t>(std::numeric_limits<std::uint32_t>::max()))
       throw std::runtime_error("padTableSort: padding too large");
     const std::uint32_t need = static_cast<std::uint32_t>(need64);
 
@@ -452,7 +447,8 @@ public:
       dummyWork_.resize(L);
 
     // Bulk zero-fill then set the one non-zero dummy tag field (idx).
-    std::memset(dummyWork_.data(), 0, static_cast<std::size_t>(L) * sizeof(row_t));
+    std::memset(dummyWork_.data(), 0,
+                static_cast<std::size_t>(L) * sizeof(row_t));
     parallel_slices(L, numThreads_, [&](const Slice &sl) {
       const std::uint32_t maxIdx = std::numeric_limits<std::uint32_t>::max();
       for (std::uint32_t i = sl.begin; i < sl.end; ++i)
@@ -524,10 +520,11 @@ private:
   std::vector<row_t> dummyWork_;
 };
 
-// Sort-based padding scheme:
-// - Creates exactly `p=2^(r+b)` buckets, where r=NUM_RADIX_BITS and b=log2(bins).
+// - Creates exactly `p=2^(r+b)` buckets, where r=NUM_RADIX_BITS and
+// b=log2(bins).
 // - Computes a public capacity U via elemPerBucket(N,p).
-// - Appends exactly (p*U - N) inserted dummies whose hashKey low bits encode the
+// - Appends exactly (p*U - N) inserted dummies whose hashKey low bits encode
+// the
 //   bucket they pad, so that later radix partitioning sees exactly U rows per
 //   (partition,bin) bucket.
 inline void padTableSort(table_t &tbl, std::uint32_t bins,

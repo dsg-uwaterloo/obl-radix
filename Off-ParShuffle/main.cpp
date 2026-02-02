@@ -259,16 +259,11 @@ int main(int argc, char *argv[]) {
 
   std::chrono::high_resolution_clock::time_point padStart =
       std::chrono::high_resolution_clock::now();
-// #if defined(USE_PAD_TABLE_SORT)
   {
     PadTableSortContext padCtx(bins, numThreads);
     padCtx.pad(R);
     padCtx.pad(S);
   }
-// #else
-//   padTableSort(R, bins, numThreads);
-//   padTableSort(S, bins, numThreads);
-// #endif
 
   // printf("Padded R size = %u\n", R.num_tuples);
   // printf("Padded S size = %u\n", S.num_tuples);
@@ -388,12 +383,12 @@ int main(int argc, char *argv[]) {
   printf("\nOShuffle took %f s (%.2f%% of total execution time)\n", shuffleSec,
          (shuffleSec * 100.0 / sec));
 
-  {
-    std::ofstream outER("join.txt");
-    for (const auto &j : joinResults)
-      outER << j.keyR << ' ' << j.payR << ' ' << j.keyS << ' ' << j.payS
-            << '\n';
-  }
+  // {
+  //   std::ofstream outER("join.txt");
+  //   for (const auto &j : joinResults)
+  //     outER << j.keyR << ' ' << j.payR << ' ' << j.keyS << ' ' << j.payS
+  //           << '\n';
+  // }
   printf("Join result rows: %d (written to join.txt)\n", m);
 
   return 0;
