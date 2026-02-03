@@ -17,12 +17,10 @@
 #include <tbb/global_control.h>
 #include <tbb/parallel_sort.h>
 
-#include "align_table.h"
 #include "backfill_dummies.h"
-#include "carry_forward.h"
 #include "external_memory/algorithm/kway_butterfly_sort.hpp"
+#include "generate_hash_R.h"
 #include "inputs.h"
-#include "merge.h"
 #include "oblivious_ops.h"
 #include "pad_table_sort.h"
 #include "parallel_counts.h"
@@ -41,17 +39,7 @@ extern "C" {
 // #define PRE_SORTED // use this if your tables are already sorted
 
 // Global timer
-std::chrono::high_resolution_clock::time_point tStart, tEnd;
-
-static void printOutput(const char *label, const table_t &tbl) {
-  printf("%s (num_tuples=%" PRIu64 ")\n", label,
-         static_cast<uint64_t>(tbl.num_tuples));
-  for (uint64_t i = 0; i < tbl.num_tuples; ++i) {
-    const row_t &rec = tbl.tuples[i];
-    printf("  [%" PRIu64 "] key=%u cntSelf=%u cntExpand=%u idx=%u hashKey=%u\n",
-           i, rec.key, rec.cntSelf, rec.cntExpand, rec.idx, rec.hashKey);
-  }
-}
+std::chrono::high_resolution_clock::time_point tStart;
 
 static void shuffleTable(table_t &tbl, std::uint32_t numThreads) {
   if (tbl.num_tuples == 0)
@@ -108,6 +96,7 @@ inline __m128i generateSecret() {
 int main(int argc, char *argv[]) {
   printf("[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the "
          "top-level CMakeLists.txt (or via -D... at CMake configure time).\n");
+  printf("[INFO] R: Primary Key table; S: Foreign Key table\n");
   std::uint32_t numThreads = 32;
   std::string inputPath = "../../datasets/real/amazon.txt";
 
@@ -130,19 +119,16 @@ int main(int argc, char *argv[]) {
   if (!load_two_tables(inputPath, t0, t1))
     exit(1);
 
-  if (t0.size() > t1.size())
-    std::swap(t0, t1);
-
   std::vector<Record> partR;
   partR.reserve(t0.size());
   std::vector<Record> partS;
   partS.reserve(t1.size());
 
-  std::uint32_t thrR = std::max<std::uint32_t>(
-      1, ceil((static_cast<double>(t0.size()) / (t0.size() + t1.size())) *
-              numThreads));
-  std::uint32_t thrS = std::max<std::uint32_t>(1, numThreads - thrR);
-  printf("threads_R: %u, threads_S: %u\n", thrR, thrS);
+  // std::uint32_t thrR = std::max<std::uint32_t>(
+  //     1, ceil((static_cast<double>(t0.size()) / (t0.size() + t1.size())) *
+  //             numThreads));
+  // std::uint32_t thrS = std::max<std::uint32_t>(1, numThreads - thrR);
+  // printf("threads_R: %u, threads_S: %u\n", thrR, thrS);
 
   table_t R, S;
   R.tuples = new row_t[t0.size()];
@@ -160,8 +146,13 @@ int main(int argc, char *argv[]) {
   t1.clear();
   t1.shrink_to_fit();
 
-  auto slices_R = buildSlices(R.num_tuples, thrR);
-  auto slices_S = buildSlices(S.num_tuples, thrS);
+  // auto slices_R = buildSlices(R.num_tuples, thrR);
+  // auto slices_S = buildSlices(S.num_tuples, thrS);
+  auto slices_R_numThreads = buildSlices(R.num_tuples, numThreads);
+  auto slices_S_numThreads = buildSlices(S.num_tuples, numThreads);
+
+  std::vector<int> lastLen(slices_S_numThreads.size()),
+      mergeVal(slices_S_numThreads.size() - 1);
 
   tbb::global_control c(tbb::global_control::max_allowed_parallelism,
                         numThreads);
@@ -177,7 +168,7 @@ int main(int argc, char *argv[]) {
     if (copyCount < target) {
       row_t dummy{};
       dummy.idx = UINT32_MAX;
-      dummy.cntExpand = 0;
+      dummy.cntSelf = 0;
       const uint32_t fillCount = target - copyCount;
       const uint32_t fillThreads =
           std::min<std::uint32_t>(numThreads, fillCount);
@@ -223,7 +214,7 @@ int main(int argc, char *argv[]) {
     pool.emplace_back(thread_start_work);
 
   tStart = std::chrono::high_resolution_clock::now();
-  bitonic_sort_(R.tuples, true, 0, R.num_tuples, numThreads, false);
+  // bitonic_sort_(R.tuples, true, 0, R.num_tuples, numThreads, false);
   bitonic_sort_(S.tuples, true, 0, S.num_tuples, numThreads, false);
 
   thread_release_all();
@@ -237,18 +228,22 @@ int main(int argc, char *argv[]) {
   tStart = std::chrono::high_resolution_clock::now();
 #endif
 
-  std::thread partitionR([&] {
-    std::vector<int> lastLen(slices_R.size()), mergeVal(slices_R.size() - 1);
-    parallelCounts(R, slices_R, lastLen, mergeVal);
-    replaceWithDummiesParallel(R, slices_R, SECRET);
-  });
-  std::thread partitionS([&] {
-    std::vector<int> lastLen(slices_S.size()), mergeVal(slices_S.size() - 1);
-    parallelCounts(S, slices_S, lastLen, mergeVal);
-    replaceWithDummiesParallel(S, slices_S, SECRET);
-  });
-  partitionR.join();
-  partitionS.join();
+  // std::thread partitionR([&] {
+  //   std::vector<int> lastLen(slices_R.size()), mergeVal(slices_R.size() - 1);
+  //   parallelCounts(R, slices_R, lastLen, mergeVal);
+  //   replaceWithDummiesParallel(R, slices_R, SECRET);
+  // });
+  // std::thread partitionS([&] {
+  //   std::vector<int> lastLen(slices_S.size()), mergeVal(slices_S.size() - 1);
+  //   parallelCounts(S, slices_S, lastLen, mergeVal);
+  //   replaceWithDummiesParallel(S, slices_S, SECRET);
+  // });
+  // partitionR.join();
+  // partitionS.join();
+
+  parallelCounts(S, slices_S_numThreads, lastLen, mergeVal);
+  replaceWithDummiesParallel(S, slices_S_numThreads, SECRET);
+  generateHashParallel(R, slices_R_numThreads, SECRET); // UPDATE
 
   std::chrono::high_resolution_clock::time_point padStart =
       std::chrono::high_resolution_clock::now();
@@ -272,58 +267,63 @@ int main(int argc, char *argv[]) {
 
   std::chrono::high_resolution_clock::time_point onStart =
       std::chrono::high_resolution_clock::now();
-  RHO(&R, &S, numThreads, bins);
+  if (S.num_tuples >= R.num_tuples) {
+    RHO(&R, &S, numThreads, false, bins);
+  } else {
+    RHO(&S, &R, numThreads, true, bins);
+  }
   std::chrono::high_resolution_clock::time_point exchangeEnd =
       std::chrono::high_resolution_clock::now();
 
   auto cmp = [](const row_t &a, const row_t &b) { return a.idx < b.idx; };
-  tbb::parallel_sort(R.tuples, R.tuples + R.num_tuples, cmp);
+  // tbb::parallel_sort(R.tuples, R.tuples + R.num_tuples, cmp);
   tbb::parallel_sort(S.tuples, S.tuples + S.num_tuples, cmp);
 
   std::chrono::high_resolution_clock::time_point nonOblSortEnd =
       std::chrono::high_resolution_clock::now();
 
-  R.num_tuples = originalRSize;
+  // R.num_tuples = originalRSize;
   S.num_tuples = originalSSize;
 
-  std::thread processR([&] {
-    backfillDummiesParallel(R, slices_R);
-    auto selected = std::make_unique<bool[]>(R.num_tuples);
-    m = prefixSumExpandParallel(R, slices_R, selected.get());
-    obli_compact_rows(R.tuples, selected.get(), R.num_tuples, thrR);
-    padTableToSize(R, m);
-    obli_distribute_rows(R.tuples, m, numThreads / 2);
-    carryForwardParallel(R, buildSlices(m, numThreads / 2));
-  });
-  std::thread processS([&] {
-    backfillDummiesParallel(S, slices_S);
-    auto selected = std::make_unique<bool[]>(S.num_tuples);
-    m = prefixSumExpandParallel(S, slices_S, selected.get());
-    obli_compact_rows(S.tuples, selected.get(), S.num_tuples, thrS);
-    padTableToSize(S, m);
-    obli_distribute_rows(S.tuples, m, numThreads / 2);
-    carryForwardParallel(S, buildSlices(m, numThreads / 2));
-  });
-  processR.join();
-  processS.join();
+  // std::thread processR([&] {
+  //   backfillDummiesParallel(R, slices_R);
+  //   auto selected = std::make_unique<bool[]>(R.num_tuples);
+  //   m = prefixSumExpandParallel(R, slices_R, selected.get());
+  //   obli_compact_rows(R.tuples, selected.get(), R.num_tuples, thrR);
+  //   padTableToSize(R, m);
+  //   obli_distribute_rows(R.tuples, m, numThreads / 2);
+  //   carryForwardParallel(R, buildSlices(m, numThreads / 2));
+  // });
+  // std::thread processS([&] {
+  backfillDummiesParallel(S, slices_S_numThreads);
+  auto selected = std::make_unique<bool[]>(S.num_tuples);
+  m = prefixSumExpandParallel(S, slices_S_numThreads, selected.get(),
+                              PrefixSumExpandMode::MatchFlag);
+  obli_compact_rows(S.tuples, selected.get(), S.num_tuples, numThreads);
+  // padTableToSize(S, m);
+  // obli_distribute_rows(S.tuples, m, numThreads / 2);
+  // carryForwardParallel(S, buildSlices(m, numThreads / 2));
+  // });
+  // processR.join();
+  // processS.join();
 
   std::chrono::high_resolution_clock::time_point distEnd =
       std::chrono::high_resolution_clock::now();
 
-  alignTableParallel(S, buildSlices(m, numThreads), numThreads);
-  std::chrono::high_resolution_clock::time_point alignEnd =
-      std::chrono::high_resolution_clock::now();
-  std::vector<JoinRec> joinResults;
-  mergeExpandedParallel(R, S, numThreads, joinResults);
+  // alignTableParallel(S, buildSlices(m, numThreads), numThreads);
+  // std::chrono::high_resolution_clock::time_point alignEnd =
+  //     std::chrono::high_resolution_clock::now();
+  // std::vector<JoinRec> joinResults;
+  // mergeExpandedParallel(R, S, numThreads, joinResults);
 
-  double sec =
-      std::chrono::duration_cast<std::chrono::duration<double>>(tEnd - tStart)
-          .count();
+  double sec = std::chrono::duration_cast<std::chrono::duration<double>>(
+                   distEnd - tStart)
+                   .count();
   printf("\nJoin completed in %f s\n", sec);
 
-  double onSec =
-      std::chrono::duration_cast<std::chrono::duration<double>>(tEnd - onStart)
-          .count();
+  double onSec = std::chrono::duration_cast<std::chrono::duration<double>>(
+                     distEnd - onStart)
+                     .count();
   printf("\nOnline: %f s\n", onSec);
   printf("\nOffline: %f s\n", sec - onSec);
 
@@ -351,13 +351,6 @@ int main(int argc, char *argv[]) {
          "execution time)\n",
          distSec, (distSec * 100.0 / onSec));
 
-  double alignSec = std::chrono::duration_cast<std::chrono::duration<double>>(
-                        alignEnd - distEnd)
-                        .count();
-  printf("\nAlignment took %f s (%.2f%% of online "
-         "execution time)\n",
-         alignSec, (alignSec * 100.0 / onSec));
-
 #ifndef PRE_SORTED
   double sortSec = std::chrono::duration_cast<std::chrono::duration<double>>(
                        sortEnd - tStart)
@@ -376,12 +369,13 @@ int main(int argc, char *argv[]) {
   printf("\nOShuffle took %f s (%.2f%% of total execution time)\n", shuffleSec,
          (shuffleSec * 100.0 / sec));
 
-  // {
-  //   std::ofstream outER("join.txt");
-  //   for (const auto &j : joinResults)
-  //     outER << j.keyR << ' ' << j.payR << ' ' << j.keyS << ' ' << j.payS
-  //           << '\n';
-  // }
+  {
+    std::ofstream outER("join.txt");
+    for (int i = 0; i < m; i++) {
+      outER << S.tuples[i].key << ' ' << S.tuples[i].paySelf << ' '
+            << S.tuples[i].key << ' ' << S.tuples[i].payPrimary << '\n';
+    }
+  }
   printf("Join result rows: %d (written to join.txt)\n", m);
 
   return 0;
