@@ -36,7 +36,7 @@ extern "C" {
 #include "threading.h"
 }
 
-// #define PRE_SORTED // use this if your tables are already sorted
+#define PRE_SORTED // use this if your tables are already sorted
 
 // Global timer
 std::chrono::high_resolution_clock::time_point tStart;
@@ -372,8 +372,8 @@ int main(int argc, char *argv[]) {
   {
     std::ofstream outER("join.txt");
     for (int i = 0; i < m; i++) {
-      outER << S.tuples[i].key << ' ' << S.tuples[i].paySelf << ' '
-            << S.tuples[i].key << ' ' << S.tuples[i].payPrimary << '\n';
+      outER << S.tuples[i].key << ' ' << S.tuples[i].payPrimary << ' '
+            << S.tuples[i].key << ' ' << S.tuples[i].paySelf << '\n';
     }
   }
   printf("Join result rows: %d (written to join.txt)\n", m);

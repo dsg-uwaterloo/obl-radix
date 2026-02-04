@@ -19,8 +19,6 @@ typedef struct {
     char paySelf[DATA_LENGTH];
     char payPrimary[DATA_LENGTH];
 
-    // Ensure C and C++ builds agree on element stride (32 bytes).
-    uint32_t _pad32;
 } __attribute__((aligned(32))) elem_t;
 
 #define j_order idx  
