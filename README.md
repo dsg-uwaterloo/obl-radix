@@ -36,9 +36,8 @@ cmake .. \
   -DNUM_PASSES=<NUM_PASSES>
 make -j$(nproc)
 ```
-**Where:**
 - `BINS_PER_PART`: Number of bins per partition  
-- `NUM_RADIX_BITS`: Number of radix bits per pass  
+- `NUM_RADIX_BITS`: Number of radix bits (total partitions = 2^NUM_RADIX_BITS)  
 - `NUM_PASSES`: Number of radix partitioning passes
 
 This builds the `OblRadix` executable that can be run with the following command:
