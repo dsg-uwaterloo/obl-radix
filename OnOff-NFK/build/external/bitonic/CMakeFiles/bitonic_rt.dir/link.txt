@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbitonic_rt.a CMakeFiles/bitonic_rt.dir/bitonic.c.o CMakeFiles/bitonic_rt.dir/threading.c.o CMakeFiles/bitonic_rt.dir/synch.c.o
+/usr/bin/ranlib libbitonic_rt.a

@@ -2,8 +2,8 @@
 
 - **`baselines/obliviatorFK-TDX/`** - Obliviator's foreign-key join ported to run outside SGX
 - **`baselines/obliviatorNFK-TDX/`** - Obliviator's non-foreign key join ported to run outside SGX
-- **`radixFK/`** - Our radix partitioning-based join for foreign key relationships
-- **`radixNFK/`** - Our radix partitioning-based join for non-foreign key relationships
+- **`OnOff-FK/`** - Our radix partitioning-based join for foreign key relationships
+- **`OnOff-NFK/`** - Our radix partitioning-based join for non-foreign key relationships
 
 
 ## Build Instructions
@@ -25,14 +25,21 @@ This builds the `standalone_join` executable that can be run with the following 
 
 ### Building Radix Partitioning-based Implementations
 
-For both `radixNFK` and `radixFK`:
+For both `OnOff-NFK` and `OnOff-FK`:
 
 ```bash
-cd radixNFK  # or radixFK
+cd OnOff-NFK  # or OnOff-FK
 mkdir build && cd build
-cmake ..
+cmake .. \
+  -DBINS_PER_PART=<BINS_PER_PART> \
+  -DNUM_RADIX_BITS=<NUM_RADIX_BITS> \
+  -DNUM_PASSES=<NUM_PASSES>
 make -j$(nproc)
 ```
+**Where:**
+- `BINS_PER_PART`: Number of bins per partition  
+- `NUM_RADIX_BITS`: Number of radix bits per pass  
+- `NUM_PASSES`: Number of radix partitioning passes
 
 This builds the `OblRadix` executable that can be run with the following command:
 ```bash
@@ -41,11 +48,15 @@ This builds the `OblRadix` executable that can be run with the following command
 
 **Note**: The radix partitioning-based joins are hardware-conscious algorithms. Depending on your workload and hardware, you may need to adjust default configurations for optimal performance:
 
-- **Radix parameters**: Modify `radixFK/external/radix_partition/CMakeLists.txt` (or `radixNFK/external/radix_partition/CMakeLists.txt`) to update:
+- **Radix parameters**: Modify `OnOff-NFK/external/radix_partition/CMakeLists.txt` (or `OnOff-FK/external/radix_partition/CMakeLists.txt`) to update:
+  - `BINS_PER_PART` (default: 32)
   - `NUM_RADIX_BITS` (default: 10)  
   - `NUM_PASSES` (default: 2)
 
-- **Cache parameters**: Modify `radixFK/external/radix_partition/prj_params.h` (or `radixNFK/external/radix_partition/prj_params.h`) to update:
+  These parameters can also be overridden at CMake configure time using
+  `-D...`, as shown in the [build instructions](#building-radix-partitioning-based-implementations) above.
+
+- **Cache parameters**: Modify `OnOff-NFK/external/radix_partition/prj_params.h` (or `OnOff-FK/external/radix_partition/prj_params.h`) to update:
   - `CACHE_LINE_SIZE` (default: 64)
   - `L1_CACHE_SIZE` (default: 49152) 
   - `L1_ASSOCIATIVITY` (default: 12)
@@ -56,10 +67,11 @@ Our radix partitioning-based implementations include Python output validation sc
 
 ```bash
 # Validate results using Python script
-cd radixNFK  # or radixFK
+cd OnOff-NFK  # or OnOff-FK
 # First build and run the program to generate output:
 # ./OblRadix <num_threads> <input_file>
 # Then validate the results:
+cd ..
 python3 TestOutput.py <input_file> [join_output_file (build/join.txt by default)]
 ```
 
@@ -69,11 +81,11 @@ The repository includes several datasets for evaluation:
 
 ### Available Datasets
 
-- **`datasets/real/`** - 6 real-world datasets (NFK: 5, FK: 1)
+- **`datasets/real/`**: Real-world datasets
 
-- **`datasets/TPC-H/`** - Scripts to generate TPC-H based join workloads
+- **`datasets/TPC-H/`**: Scripts to generate TPC-H based join workloads
 
-- **`datasets/create_synthetic_data.py`** - Script to generate synthetic datasets
+- **`datasets/create_synthetic_data.py`**: Script to generate synthetic datasets
 
 ### Input Format Requirements
 
@@ -97,6 +109,6 @@ key2 payload2
 Both radix-paritioning based implementations include a `sort_tables.py` script to pre-sort datasets (if not already sorted):
 
 ```bash
-cd radixNFK  # or radixFK
+cd OnOff-NFK  # or OnOff-FK
 python3 sort_tables.py <input_file> <output_file>
 ```

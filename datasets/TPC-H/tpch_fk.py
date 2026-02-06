@@ -12,12 +12,12 @@ f3.write('\n')
 
 for i in range(len(data1)):
     lst = data1[i].split("|")
-    f3.write(lst[0]+" DATA")
+    f3.write(lst[0]+" DATA"+"\n")
 f3.write('\r\n')
 
 for i in range(len(data2)):
     lst = data2[i].split("|")
-    f3.write(lst[0]+" DATA")
+    f3.write(lst[0]+" DATA"+"\n")
 f1.close()
 f2.close()
 f3.close()
