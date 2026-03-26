@@ -1,2 +1,0 @@
-/usr/bin/ar qc libliboblivious.a CMakeFiles/liboblivious.dir/third_party/liboblivious/algorithms.c.o CMakeFiles/liboblivious.dir/third_party/liboblivious/opagedmem.c.o CMakeFiles/liboblivious.dir/third_party/liboblivious/oram.c.o
-/usr/bin/ranlib libliboblivious.a

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdlib>
+
 #include "external_memory/dynamicvector.hpp"
 #include "external_memory/noncachedvector.hpp"
 #include "external_memory/par_io.hpp"
@@ -128,8 +130,14 @@ public:
     omp_set_num_threads(fixedThreads);
     thread_count = fixedThreads;
 
-    batch = (WrappedT *)malloc(heapSize);
-    if (!batch) {
+    // WrappedT (TaggedT<T>) is over-aligned (typically 32B). Plain malloc only
+    // guarantees max_align_t (often 16B) which can lead to crashes when the
+    // algorithm uses aligned SIMD loads/stores.
+    void *raw = nullptr;
+    const size_t alignment = alignof(WrappedT);
+    const int allocRc = posix_memalign(&raw, alignment, (size_t)heapSize);
+    batch = (WrappedT *)raw;
+    if (allocRc != 0 || !batch) {
       printf("batch allocation failed\n");
       abort();
     }
