@@ -47,12 +47,12 @@
 
 /** L1 cache size */
 #ifndef L1_CACHE_SIZE
-#define L1_CACHE_SIZE 49152
+#define L1_CACHE_SIZE 32768 // 49152
 #endif
 
 /** L1 associativity */
 #ifndef L1_ASSOCIATIVITY
-#define L1_ASSOCIATIVITY 12
+#define L1_ASSOCIATIVITY 8 // 12
 #endif
 
 /** number of tuples fitting into L1 */

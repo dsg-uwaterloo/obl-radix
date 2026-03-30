@@ -1,10 +1,32 @@
 #pragma once
+// This header is intentionally lightweight; it relies on INLINE/Assert macros
+// provided by the enclosing oshuffle codebase.
+#include <algorithm>
+#include <bit>
+#include <cstdint>
+#include <type_traits>
 /// @brief EdgeRec is a bitset that records the edges in a graph
 /// @tparam Bits the type of the bitset, default is uint64_t
 template <typename Bits = uint64_t>
 struct EdgeRec {
   Bits edges;
   uint16_t k;
+
+ private:
+  // Constant-time helpers: avoid data-dependent control flow while selecting
+  // values derived from secret randomness (shuffle tags).
+  INLINE static constexpr uint64_t ctMaskNonZero(uint64_t x) {
+    return 0ULL - (uint64_t)(x != 0);
+  }
+  INLINE static constexpr uint64_t ctSelect(uint64_t mask, uint64_t a,
+                                           uint64_t b) {
+    return (a & mask) | (b & ~mask);
+  }
+  INLINE static constexpr uint16_t ctSelect16(uint64_t mask, uint16_t a,
+                                             uint16_t b) {
+    const uint16_t m16 = (uint16_t)mask;
+    return (uint16_t)((a & m16) | (b & (uint16_t)~m16));
+  }
 
  public:
   EdgeRec(uint16_t k) : k(k) {  // k is number of vertices
@@ -92,21 +114,35 @@ struct EdgeRec {
     edges &= simpleMask;
     uint16_t v8 = 0;
     for (uint16_t r = 0; r != numEdge; ++r) {
-      // clear bits for less than v0
-      uint64_t choices = edges & ((-1UL) << v8);
-      uint16_t trailingZeros = std::countr_zero(choices);
+      // Maintain data-independent control flow: do not branch on `edges` (it is
+      // derived from secret shuffle tags). Instead, compute masks and apply
+      // updates conditionally.
+      const uint64_t edgesMask = ctMaskNonZero((uint64_t)edges);
+
+      // Clear bits for less than v0; if none remain, wrap around to the global
+      // smallest uncovered vertex (case 2 in comments below).
+      const uint64_t choices0 = (uint64_t)edges & ((-1ULL) << v8);
+      const uint64_t choicesMask = ctMaskNonZero(choices0);
+      const uint64_t choicesWrapped = ctSelect(choicesMask, choices0, (uint64_t)edges);
+
+      // Avoid shift-by-64 UB: ensure the value passed into countr_zero is never
+      // zero when `edges` is empty. Subsequent updates are masked off anyway.
+      const uint64_t safeChoices =
+          choicesWrapped | ((~edgesMask) & 1ULL);  // if edges==0 -> 1
+      const uint16_t trailingZeros = (uint16_t)std::countr_zero(safeChoices);
       // case 1: there's an edge v0->next
       // case 2: next is a vertex connected to the smallest uncovered vertex
       // case 3: all is done and next = 0
       uint16_t next = trailingZeros & 7;
       uint16_t v0 = trailingZeros >> 3;
-      Bits v0_to_next_mask = 1UL << trailingZeros;
-      v8 = next << 3;
-      Bits next_to_v0_mask = 1UL << (v8 | v0);
+      const Bits v0_to_next_mask = (Bits)(1ULL << trailingZeros);
+      const uint16_t nextV8 = (uint16_t)(next << 3);
+      const Bits next_to_v0_mask = (Bits)(1ULL << (uint16_t)(nextV8 | v0));
       // set this edge as done (could be that it's already done in case 2)
-      edges &= ~(v0_to_next_mask | next_to_v0_mask);
+      edges &= ~(Bits)((v0_to_next_mask | next_to_v0_mask) & (Bits)edgesMask);
       // set direction v0->next if it's in case 1
-      path.edges |= v0_to_next_mask;
+      path.edges |= (Bits)(v0_to_next_mask & (Bits)edgesMask);
+      v8 = ctSelect16(edgesMask, nextV8, v8);
     }
     return path;
   }

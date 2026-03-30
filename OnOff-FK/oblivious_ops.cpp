@@ -27,11 +27,25 @@ inline std::uint32_t prev_power_of_two(std::uint32_t n) {
 inline void oblivious_swap(row_t &a, row_t &b, bool flag) {
   const std::uint64_t mask =
       static_cast<std::uint64_t>(0) - static_cast<std::uint64_t>(flag);
+#if defined(__AVX2__)
+  // Swap both 32-byte records in one pass (2 loads + 2 stores).
+  // This is significantly more bandwidth-friendly than doing two masked copies.
+  __m256i va = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(&a));
+  __m256i vb = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(&b));
+  __m256i m = _mm256_set1_epi64x(static_cast<long long>(mask));
+  __m256i na =
+      _mm256_or_si256(_mm256_and_si256(vb, m), _mm256_andnot_si256(m, va));
+  __m256i nb =
+      _mm256_or_si256(_mm256_and_si256(va, m), _mm256_andnot_si256(m, vb));
+  _mm256_storeu_si256(reinterpret_cast<__m256i *>(&a), na);
+  _mm256_storeu_si256(reinterpret_cast<__m256i *>(&b), nb);
+#else
   row_t tmp = a;
   maskedCopyRecord32(reinterpret_cast<const Record *>(&b),
                      reinterpret_cast<Record *>(&a), mask);
   maskedCopyRecord32(reinterpret_cast<const Record *>(&tmp),
                      reinterpret_cast<Record *>(&b), mask);
+#endif
 }
 
 template <class Func>

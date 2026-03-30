@@ -4,6 +4,7 @@
 #include <string>
 #include <cstring>
 #include <cstdlib>
+#include <cstdint>
 #include <vector>
 #include <queue>
 #include <algorithm>
@@ -30,10 +31,10 @@ int main() {
 
 	ofstream file1n2_1("twitter_1n2_1.txt"); // ID follows popular
 	ofstream file1_2("twitter_1_2.txt"); // Inactive ID
-	//ofstream file2_1("twitter_2_1.txt");
+	ofstream file2_1("twitter_2_1.txt");
 	ofstream file2_2("twitter_2_2.txt"); // Normal ID
-	//ofstream file3_1("twitter_3_1.txt"); // ID follows normal
-	//ofstream file3_2("twitter_3_2.txt"); // Popular ID
+	ofstream file3_1("twitter_3_1.txt"); // ID follows normal
+	ofstream file3_2("twitter_3_2.txt"); // Popular ID
 
 	ifstream fin2("links-anon.txt");
 	string line2;
@@ -44,19 +45,19 @@ int main() {
 		if (follower[x] >= 10000) {
 			file1n2_1 << y << " X\n";
 		};
-		// if ((0 < follower[x]) && (5 <= follower[x] || 5 <= following[x])) {
-		// 	file3_1 << y << " X\n";
-		// };
+		if ((0 < follower[x]) && (5 <= follower[x] || 5 <= following[x])) {
+			file3_1 << y << " X\n";
+		};
 	}
 	fin2.close();
 	file1n2_1.close();
-	//file3_1.close();
+	file3_1.close();
 
 
 	for (uint64_t i = 1; i <= n; ++i) {
 		if (follower[i] > 0) {
 			if (follower[i] >= 10000) {
-				//file3_2 << i << " X\n";
+				file3_2 << i << " X\n";
 			}
 			else if (follower[i] <= 5 && following[i] <= 5) {
 				file1_2 << i << " X\n";
@@ -68,7 +69,7 @@ int main() {
 	}
 	file1_2.close();
 	file2_2.close();
-	//file3_2.close();
+	file3_2.close();
 	
 	delete[] follower;
 	delete[] following;
