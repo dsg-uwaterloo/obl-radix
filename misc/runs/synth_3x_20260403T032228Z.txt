@@ -1,0 +1,420 @@
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_22.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 10, Passes: 2
+Bins: 8
+
+Join completed in 1.499434 s
+
+Online: 0.416416 s
+
+Offline: 1.083018 s
+
+Partitioning and exchanging counts took 0.170443 s (11.37% of total execution time)
+
+Non-oblivious sort took 0.093319 s (22.41% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.088406 s (21.23% of online execution time)
+
+Alignment took 0.065195 s (15.66% of online execution time)
+
+Sorting took 0.106757 s
+
+Padding took 0.724112 s
+
+OShuffle took 0.233604 s (15.58% of total execution time)
+Join result rows: 2097152 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_22.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 10, Passes: 2
+Bins: 8
+
+Join completed in 1.523246 s
+
+Online: 0.409646 s
+
+Offline: 1.113600 s
+
+Partitioning and exchanging counts took 0.176282 s (11.57% of total execution time)
+
+Non-oblivious sort took 0.088751 s (21.67% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.078875 s (19.25% of online execution time)
+
+Alignment took 0.066828 s (16.31% of online execution time)
+
+Sorting took 0.109935 s
+
+Padding took 0.740227 s
+
+OShuffle took 0.238075 s (15.63% of total execution time)
+Join result rows: 2097152 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_22.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 10, Passes: 2
+Bins: 8
+
+Join completed in 1.557777 s
+
+Online: 0.416943 s
+
+Offline: 1.140834 s
+
+Partitioning and exchanging counts took 0.186179 s (11.95% of total execution time)
+
+Non-oblivious sort took 0.093509 s (22.43% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.079782 s (19.14% of online execution time)
+
+Alignment took 0.058424 s (14.01% of online execution time)
+
+Sorting took 0.117085 s
+
+Padding took 0.747299 s
+
+OShuffle took 0.250945 s (16.11% of total execution time)
+Join result rows: 2097152 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_24.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 10, Passes: 2
+Bins: 32
+
+Join completed in 4.680675 s
+
+Online: 1.331998 s
+
+Offline: 3.348678 s
+
+Partitioning and exchanging counts took 0.462199 s (9.87% of total execution time)
+
+Non-oblivious sort took 0.415883 s (31.22% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.217999 s (16.37% of online execution time)
+
+Alignment took 0.238548 s (17.91% of online execution time)
+
+Sorting took 0.375209 s
+
+Padding took 2.062497 s
+
+OShuffle took 0.879594 s (18.79% of total execution time)
+Join result rows: 8388608 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_24.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 10, Passes: 2
+Bins: 32
+
+Join completed in 4.502473 s
+
+Online: 1.285792 s
+
+Offline: 3.216681 s
+
+Partitioning and exchanging counts took 0.477573 s (10.61% of total execution time)
+
+Non-oblivious sort took 0.338893 s (26.36% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.207488 s (16.14% of online execution time)
+
+Alignment took 0.264209 s (20.55% of online execution time)
+
+Sorting took 0.353136 s
+
+Padding took 2.098542 s
+
+OShuffle took 0.734555 s (16.31% of total execution time)
+Join result rows: 8388608 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_24.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 10, Passes: 2
+Bins: 32
+
+Join completed in 4.477651 s
+
+Online: 1.309629 s
+
+Offline: 3.168022 s
+
+Partitioning and exchanging counts took 0.455997 s (10.18% of total execution time)
+
+Non-oblivious sort took 0.359578 s (27.46% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.229629 s (17.53% of online execution time)
+
+Alignment took 0.267277 s (20.41% of online execution time)
+
+Sorting took 0.375841 s
+
+Padding took 1.999497 s
+
+OShuffle took 0.761481 s (17.01% of total execution time)
+Join result rows: 8388608 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_26.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 10, Passes: 2
+Bins: 128
+
+Join completed in 17.640199 s
+
+Online: 4.949867 s
+
+Offline: 12.690332 s
+
+Partitioning and exchanging counts took 1.842160 s (10.44% of total execution time)
+
+Non-oblivious sort took 1.342518 s (27.12% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.885559 s (17.89% of online execution time)
+
+Alignment took 0.885584 s (17.89% of online execution time)
+
+Sorting took 1.571956 s
+
+Padding took 8.137222 s
+
+OShuffle took 2.915241 s (16.53% of total execution time)
+Join result rows: 33554432 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_26.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 10, Passes: 2
+Bins: 128
+
+Join completed in 17.554018 s
+
+Online: 4.989872 s
+
+Offline: 12.564146 s
+
+Partitioning and exchanging counts took 1.832743 s (10.44% of total execution time)
+
+Non-oblivious sort took 1.301553 s (26.08% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.936538 s (18.77% of online execution time)
+
+Alignment took 0.923876 s (18.52% of online execution time)
+
+Sorting took 1.645186 s
+
+Padding took 8.166944 s
+
+OShuffle took 2.681900 s (15.28% of total execution time)
+Join result rows: 33554432 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_26.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 10, Passes: 2
+Bins: 128
+
+Join completed in 17.778939 s
+
+Online: 5.115059 s
+
+Offline: 12.663881 s
+
+Partitioning and exchanging counts took 1.870516 s (10.52% of total execution time)
+
+Non-oblivious sort took 1.455760 s (28.46% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.905121 s (17.70% of online execution time)
+
+Alignment took 0.888388 s (17.37% of online execution time)
+
+Sorting took 1.540461 s
+
+Padding took 8.170084 s
+
+OShuffle took 2.883838 s (16.22% of total execution time)
+Join result rows: 33554432 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_28.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 81.819449 s
+
+Online: 22.012823 s
+
+Offline: 59.806625 s
+
+Partitioning and exchanging counts took 9.105139 s (11.13% of total execution time)
+
+Non-oblivious sort took 5.124753 s (23.28% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 3.738015 s (16.98% of online execution time)
+
+Alignment took 4.073006 s (18.50% of online execution time)
+
+Sorting took 7.339919 s
+
+Padding took 42.710890 s
+
+OShuffle took 9.516543 s (11.63% of total execution time)
+Join result rows: 134217728 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_28.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 82.121833 s
+
+Online: 21.959553 s
+
+Offline: 60.162280 s
+
+Partitioning and exchanging counts took 9.335973 s (11.37% of total execution time)
+
+Non-oblivious sort took 4.786841 s (21.80% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 3.747253 s (17.06% of online execution time)
+
+Alignment took 4.120844 s (18.77% of online execution time)
+
+Sorting took 7.379175 s
+
+Padding took 42.938268 s
+
+OShuffle took 9.593912 s (11.68% of total execution time)
+Join result rows: 134217728 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_28.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 82.040305 s
+
+Online: 21.686894 s
+
+Offline: 60.353411 s
+
+Partitioning and exchanging counts took 9.128842 s (11.13% of total execution time)
+
+Non-oblivious sort took 4.761256 s (21.95% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 3.760317 s (17.34% of online execution time)
+
+Alignment took 4.063934 s (18.74% of online execution time)
+
+Sorting took 7.369564 s
+
+Padding took 43.073595 s
+
+OShuffle took 9.660984 s (11.78% of total execution time)
+Join result rows: 134217728 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_30.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 13, Passes: 2
+Bins: 128
+
+Join completed in 361.460078 s
+
+Online: 93.768556 s
+
+Offline: 267.691522 s
+
+Partitioning and exchanging counts took 40.011323 s (11.07% of total execution time)
+
+Non-oblivious sort took 19.016983 s (20.28% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 15.871002 s (16.93% of online execution time)
+
+Alignment took 18.967283 s (20.23% of online execution time)
+
+Sorting took 36.115506 s
+
+Padding took 197.138562 s
+
+OShuffle took 33.484679 s (9.26% of total execution time)
+Join result rows: 536870912 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_30.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 13, Passes: 2
+Bins: 128
+
+Join completed in 360.383860 s
+
+Online: 92.496496 s
+
+Offline: 267.887365 s
+
+Partitioning and exchanging counts took 38.233915 s (10.61% of total execution time)
+
+Non-oblivious sort took 19.623502 s (21.22% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 15.757017 s (17.04% of online execution time)
+
+Alignment took 18.995281 s (20.54% of online execution time)
+
+Sorting took 34.955865 s
+
+Padding took 198.909321 s
+
+OShuffle took 33.110609 s (9.19% of total execution time)
+Join result rows: 536870912 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/join_input_1x1_2power_30.txt
+Threads: 32
+threads_R: 16, threads_S: 16
+
+Radix bits: 13, Passes: 2
+Bins: 128
+
+Join completed in 362.440375 s
+
+Online: 92.253559 s
+
+Offline: 270.186817 s
+
+Partitioning and exchanging counts took 38.940750 s (10.74% of total execution time)
+
+Non-oblivious sort took 18.715109 s (20.29% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 15.786456 s (17.11% of online execution time)
+
+Alignment took 18.917228 s (20.51% of online execution time)
+
+Sorting took 35.156678 s
+
+Padding took 201.227470 s
+
+OShuffle took 32.900956 s (9.08% of total execution time)
+Join result rows: 536870912 (written to join.txt)

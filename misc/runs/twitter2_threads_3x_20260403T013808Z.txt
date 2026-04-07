@@ -1,0 +1,420 @@
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 2
+threads_R: 1, threads_S: 1
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 312.261589 s
+
+Online: 97.538143 s
+
+Offline: 214.723446 s
+
+Partitioning and exchanging counts took 28.060616 s (8.99% of total execution time)
+
+Non-oblivious sort took 10.346721 s (10.61% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 18.423007 s (18.89% of online execution time)
+
+Alignment took 40.725703 s (41.75% of online execution time)
+
+Sorting took 61.647420 s
+
+Padding took 91.416856 s
+
+OShuffle took 60.632570 s (19.42% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 2
+threads_R: 1, threads_S: 1
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 312.536255 s
+
+Online: 96.871362 s
+
+Offline: 215.664893 s
+
+Partitioning and exchanging counts took 27.657576 s (8.85% of total execution time)
+
+Non-oblivious sort took 10.132401 s (10.46% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 18.247995 s (18.84% of online execution time)
+
+Alignment took 40.856691 s (42.18% of online execution time)
+
+Sorting took 61.302205 s
+
+Padding took 91.126942 s
+
+OShuffle took 62.198033 s (19.90% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 2
+threads_R: 1, threads_S: 1
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 311.779181 s
+
+Online: 97.544359 s
+
+Offline: 214.234822 s
+
+Partitioning and exchanging counts took 27.746433 s (8.90% of total execution time)
+
+Non-oblivious sort took 10.550909 s (10.82% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 18.574346 s (19.04% of online execution time)
+
+Alignment took 40.689776 s (41.71% of online execution time)
+
+Sorting took 61.131239 s
+
+Padding took 91.185496 s
+
+OShuffle took 60.887307 s (19.53% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 4
+threads_R: 1, threads_S: 3
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 172.823134 s
+
+Online: 58.165649 s
+
+Offline: 114.657485 s
+
+Partitioning and exchanging counts took 14.513975 s (8.40% of total execution time)
+
+Non-oblivious sort took 6.114303 s (10.51% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 16.608666 s (28.55% of online execution time)
+
+Alignment took 20.953236 s (36.02% of online execution time)
+
+Sorting took 30.695882 s
+
+Padding took 52.534238 s
+
+OShuffle took 30.944834 s (17.91% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 4
+threads_R: 1, threads_S: 3
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 172.667856 s
+
+Online: 58.169519 s
+
+Offline: 114.498337 s
+
+Partitioning and exchanging counts took 14.532898 s (8.42% of total execution time)
+
+Non-oblivious sort took 6.189174 s (10.64% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 16.700093 s (28.71% of online execution time)
+
+Alignment took 20.764437 s (35.70% of online execution time)
+
+Sorting took 30.762784 s
+
+Padding took 52.468197 s
+
+OShuffle took 30.783786 s (17.83% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 4
+threads_R: 1, threads_S: 3
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 172.246299 s
+
+Online: 57.978607 s
+
+Offline: 114.267692 s
+
+Partitioning and exchanging counts took 14.660986 s (8.51% of total execution time)
+
+Non-oblivious sort took 5.737084 s (9.90% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 16.700403 s (28.80% of online execution time)
+
+Alignment took 20.897162 s (36.04% of online execution time)
+
+Sorting took 30.577481 s
+
+Padding took 52.318108 s
+
+OShuffle took 30.888341 s (17.93% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 16
+threads_R: 4, threads_S: 12
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 63.788565 s
+
+Online: 20.950939 s
+
+Offline: 42.837626 s
+
+Partitioning and exchanging counts took 4.916983 s (7.71% of total execution time)
+
+Non-oblivious sort took 3.165540 s (15.11% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 6.883781 s (32.86% of online execution time)
+
+Alignment took 6.015211 s (28.71% of online execution time)
+
+Sorting took 8.396806 s
+
+Padding took 25.590796 s
+
+OShuffle took 8.648347 s (13.56% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 16
+threads_R: 4, threads_S: 12
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 63.966198 s
+
+Online: 21.234020 s
+
+Offline: 42.732178 s
+
+Partitioning and exchanging counts took 4.787006 s (7.48% of total execution time)
+
+Non-oblivious sort took 3.463342 s (16.31% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 6.934551 s (32.66% of online execution time)
+
+Alignment took 6.075305 s (28.61% of online execution time)
+
+Sorting took 8.372773 s
+
+Padding took 25.473212 s
+
+OShuffle took 8.698230 s (13.60% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 16
+threads_R: 4, threads_S: 12
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 64.221476 s
+
+Online: 21.316204 s
+
+Offline: 42.905271 s
+
+Partitioning and exchanging counts took 5.154532 s (8.03% of total execution time)
+
+Non-oblivious sort took 3.281816 s (15.40% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 6.858289 s (32.17% of online execution time)
+
+Alignment took 6.041848 s (28.34% of online execution time)
+
+Sorting took 8.380760 s
+
+Padding took 25.705608 s
+
+OShuffle took 8.637499 s (13.45% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 32
+threads_R: 7, threads_S: 25
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 47.314908 s
+
+Online: 15.519862 s
+
+Offline: 31.795046 s
+
+Partitioning and exchanging counts took 3.669315 s (7.76% of total execution time)
+
+Non-oblivious sort took 2.813187 s (18.13% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 5.474802 s (35.28% of online execution time)
+
+Alignment took 3.581602 s (23.08% of online execution time)
+
+Sorting took 4.913977 s
+
+Padding took 21.474423 s
+
+OShuffle took 5.251640 s (11.10% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 32
+threads_R: 7, threads_S: 25
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 47.646340 s
+
+Online: 16.351301 s
+
+Offline: 31.295039 s
+
+Partitioning and exchanging counts took 3.785600 s (7.95% of total execution time)
+
+Non-oblivious sort took 3.534653 s (21.62% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 5.456820 s (33.37% of online execution time)
+
+Alignment took 3.598905 s (22.01% of online execution time)
+
+Sorting took 4.956012 s
+
+Padding took 21.073036 s
+
+OShuffle took 5.115963 s (10.74% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 32
+threads_R: 7, threads_S: 25
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 47.204854 s
+
+Online: 15.775589 s
+
+Offline: 31.429264 s
+
+Partitioning and exchanging counts took 3.570726 s (7.56% of total execution time)
+
+Non-oblivious sort took 3.247723 s (20.59% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 5.396278 s (34.21% of online execution time)
+
+Alignment took 3.582312 s (22.71% of online execution time)
+
+Sorting took 4.935982 s
+
+Padding took 21.246457 s
+
+OShuffle took 5.103894 s (10.81% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 64
+threads_R: 13, threads_S: 51
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 40.181024 s
+
+Online: 14.238818 s
+
+Offline: 25.942206 s
+
+Partitioning and exchanging counts took 3.169171 s (7.89% of total execution time)
+
+Non-oblivious sort took 3.387684 s (23.79% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 4.910474 s (34.49% of online execution time)
+
+Alignment took 2.787094 s (19.57% of online execution time)
+
+Sorting took 3.643099 s
+
+Padding took 17.710074 s
+
+OShuffle took 4.462281 s (11.11% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 64
+threads_R: 13, threads_S: 51
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 39.847779 s
+
+Online: 13.875394 s
+
+Offline: 25.972385 s
+
+Partitioning and exchanging counts took 2.993774 s (7.51% of total execution time)
+
+Non-oblivious sort took 3.083837 s (22.23% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 4.886948 s (35.22% of online execution time)
+
+Alignment took 2.935560 s (21.16% of online execution time)
+
+Sorting took 3.616800 s
+
+Padding took 17.649002 s
+
+OShuffle took 4.577965 s (11.49% of total execution time)
+Join result rows: 111679643 (written to join.txt)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+Input: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Threads: 64
+threads_R: 13, threads_S: 51
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 40.095054 s
+
+Online: 13.908677 s
+
+Offline: 26.186376 s
+
+Partitioning and exchanging counts took 3.387902 s (8.45% of total execution time)
+
+Non-oblivious sort took 2.957820 s (21.27% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 4.896087 s (35.20% of online execution time)
+
+Alignment took 2.685963 s (19.31% of online execution time)
+
+Sorting took 3.763464 s
+
+Padding took 17.827826 s
+
+OShuffle took 4.468607 s (11.15% of total execution time)
+Join result rows: 111679643 (written to join.txt)

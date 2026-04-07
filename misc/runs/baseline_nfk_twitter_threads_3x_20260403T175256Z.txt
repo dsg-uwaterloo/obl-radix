@@ -1,0 +1,122 @@
+Threads: 2
+Input file: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Created 1 worker threads
+Table 1: 127301736 records, Table 2: 31900338 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 125.019273 seconds
+length_result: 111679643
+Threads: 2
+Input file: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Created 1 worker threads
+Table 1: 127301736 records, Table 2: 31900338 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 125.916087 seconds
+length_result: 111679643
+Threads: 2
+Input file: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Created 1 worker threads
+Table 1: 127301736 records, Table 2: 31900338 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 125.435172 seconds
+length_result: 111679643
+Threads: 4
+Input file: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Created 3 worker threads
+Table 1: 127301736 records, Table 2: 31900338 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 65.779227 seconds
+length_result: 111679643
+Threads: 4
+Input file: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Created 3 worker threads
+Table 1: 127301736 records, Table 2: 31900338 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 65.935915 seconds
+length_result: 111679643
+Threads: 4
+Input file: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Created 3 worker threads
+Table 1: 127301736 records, Table 2: 31900338 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 66.148717 seconds
+length_result: 111679643
+Threads: 8
+Input file: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Created 7 worker threads
+Table 1: 127301736 records, Table 2: 31900338 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 36.541522 seconds
+length_result: 111679643
+Threads: 8
+Input file: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Created 7 worker threads
+Table 1: 127301736 records, Table 2: 31900338 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 36.397300 seconds
+length_result: 111679643
+Threads: 8
+Input file: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Created 7 worker threads
+Table 1: 127301736 records, Table 2: 31900338 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 36.606600 seconds
+length_result: 111679643
+Threads: 16
+Input file: /root/obl-radix/datasets/real/twitter/twitter_2.txt
+Created 15 worker threads
+Table 1: 127301736 records, Table 2: 31900338 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 31.559085 seconds
+length_result: 111679643
+
+Threads: 16
+Input file: ../../datasets/real/twitter/twitter_2.txt
+Created 15 worker threads
+Table 1: 127301736 records, Table 2: 31900338 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 31.543548 seconds
+length_result: 111679643
+
+Threads: 16
+Input file: ../../datasets/real/twitter/twitter_2.txt
+Created 15 worker threads
+Table 1: 127301736 records, Table 2: 31900338 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 31.606529 seconds
+length_result: 111679643

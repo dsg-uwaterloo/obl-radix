@@ -1,0 +1,375 @@
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf100/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 10, Passes: 2
+Bins: 128
+
+Join completed in 221.197869 s
+
+Online: 54.730944 s
+
+Offline: 166.466924 s
+
+Partitioning and exchanging counts took 45.222594 s (20.44% of total execution time)
+
+Non-oblivious sort took 9.219995 s (16.85% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.288355 s (0.53% of online execution time)
+
+Sorting took 23.599504 s
+
+Padding took 122.616957 s
+
+OShuffle took 19.652942 s (8.88% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf100/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 10, Passes: 2
+Bins: 256
+
+Join completed in 217.084785 s
+
+Online: 42.329410 s
+
+Offline: 174.755374 s
+
+Partitioning and exchanging counts took 33.119558 s (15.26% of total execution time)
+
+Non-oblivious sort took 8.931852 s (21.10% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.278001 s (0.66% of online execution time)
+
+Sorting took 23.344340 s
+
+Padding took 127.427210 s
+
+OShuffle took 23.399166 s (10.78% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf100/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 10, Passes: 2
+Bins: 512
+
+Join completed in 224.408896 s
+
+Online: 36.298091 s
+
+Offline: 188.110805 s
+
+Partitioning and exchanging counts took 24.959023 s (11.12% of total execution time)
+
+Non-oblivious sort took 11.066405 s (30.49% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.272663 s (0.75% of online execution time)
+
+Sorting took 23.578437 s
+
+Padding took 141.139768 s
+
+OShuffle took 22.825581 s (10.17% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf100/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 11, Passes: 2
+Bins: 128
+
+Join completed in 216.028448 s
+
+Online: 41.896515 s
+
+Offline: 174.131932 s
+
+Partitioning and exchanging counts took 32.093920 s (14.86% of total execution time)
+
+Non-oblivious sort took 9.540454 s (22.77% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.262141 s (0.63% of online execution time)
+
+Sorting took 23.649661 s
+
+Padding took 126.143598 s
+
+OShuffle took 23.749347 s (10.99% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf100/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 11, Passes: 2
+Bins: 512
+
+Join completed in 237.734325 s
+
+Online: 32.957050 s
+
+Offline: 204.777275 s
+
+Partitioning and exchanging counts took 22.257647 s (9.36% of total execution time)
+
+Non-oblivious sort took 10.419315 s (31.61% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.280088 s (0.85% of online execution time)
+
+Sorting took 23.627804 s
+
+Padding took 150.454084 s
+
+OShuffle took 30.128206 s (12.67% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf100/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 12, Passes: 2
+Bins: 8
+
+Join completed in 270.078676 s
+
+Online: 105.408233 s
+
+Offline: 164.670442 s
+
+Partitioning and exchanging counts took 96.872168 s (35.87% of total execution time)
+
+Non-oblivious sort took 8.246088 s (7.82% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.289978 s (0.28% of online execution time)
+
+Sorting took 23.662606 s
+
+Padding took 118.729530 s
+
+OShuffle took 21.694479 s (8.03% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf100/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 12, Passes: 2
+Bins: 32
+
+Join completed in 217.876943 s
+
+Online: 49.066663 s
+
+Offline: 168.810280 s
+
+Partitioning and exchanging counts took 39.793327 s (18.26% of total execution time)
+
+Non-oblivious sort took 9.001358 s (18.35% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.271979 s (0.55% of online execution time)
+
+Sorting took 23.639938 s
+
+Padding took 125.364736 s
+
+OShuffle took 19.234689 s (8.83% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf100/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 214.099502 s
+
+Online: 39.283939 s
+
+Offline: 174.815563 s
+
+Partitioning and exchanging counts took 29.227281 s (13.65% of total execution time)
+
+Non-oblivious sort took 9.783482 s (24.90% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.273175 s (0.70% of online execution time)
+
+Sorting took 23.647739 s
+
+Padding took 126.822542 s
+
+OShuffle took 23.759319 s (11.10% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf100/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 12, Passes: 2
+Bins: 128
+
+Join completed in 221.185131 s
+
+Online: 33.090174 s
+
+Offline: 188.094958 s
+
+Partitioning and exchanging counts took 22.134199 s (10.01% of total execution time)
+
+Non-oblivious sort took 10.685416 s (32.29% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.270559 s (0.82% of online execution time)
+
+Sorting took 23.452157 s
+
+Padding took 141.338254 s
+
+OShuffle took 22.704371 s (10.26% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf10/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 12, Passes: 2
+Bins: 8
+
+Join completed in 15.959807 s
+
+Online: 3.073682 s
+
+Offline: 12.886125 s
+
+Partitioning and exchanging counts took 2.096209 s (13.13% of total execution time)
+
+Non-oblivious sort took 0.942918 s (30.68% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.034555 s (1.12% of online execution time)
+
+Sorting took 1.836017 s
+
+Padding took 8.793679 s
+
+OShuffle took 2.170676 s (13.60% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf10/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 12, Passes: 2
+Bins: 16
+
+Join completed in 16.643770 s
+
+Online: 2.766217 s
+
+Offline: 13.877553 s
+
+Partitioning and exchanging counts took 1.756799 s (10.56% of total execution time)
+
+Non-oblivious sort took 0.974738 s (35.24% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.034680 s (1.25% of online execution time)
+
+Sorting took 1.813762 s
+
+Padding took 9.221517 s
+
+OShuffle took 2.755540 s (16.56% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf10/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 12, Passes: 2
+Bins: 32
+
+Join completed in 18.034971 s
+
+Online: 3.163870 s
+
+Offline: 14.871101 s
+
+Partitioning and exchanging counts took 1.865763 s (10.35% of total execution time)
+
+Non-oblivious sort took 1.265346 s (39.99% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.032762 s (1.04% of online execution time)
+
+Sorting took 1.804702 s
+
+Padding took 10.146858 s
+
+OShuffle took 2.836276 s (15.73% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf10/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 12, Passes: 2
+Bins: 64
+
+Join completed in 20.217995 s
+
+Online: 3.724991 s
+
+Offline: 16.493004 s
+
+Partitioning and exchanging counts took 2.460529 s (12.17% of total execution time)
+
+Non-oblivious sort took 1.228383 s (32.98% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.036079 s (0.97% of online execution time)
+
+Sorting took 1.805586 s
+
+Padding took 11.621095 s
+
+OShuffle took 2.988857 s (14.78% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf10/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 10, Passes: 2
+Bins: 8
+
+Join completed in 17.908680 s
+
+Online: 5.871119 s
+
+Offline: 12.037562 s
+
+Partitioning and exchanging counts took 4.905812 s (27.39% of total execution time)
+
+Non-oblivious sort took 0.930768 s (15.85% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.034539 s (0.59% of online execution time)
+
+Sorting took 1.821016 s
+
+Padding took 8.178911 s
+
+OShuffle took 1.951178 s (10.90% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/TPC-H/sf10/tpch_fk_swapped.txt
+Threads: 32
+
+Radix bits: 10, Passes: 2
+Bins: 32
+
+Join completed in 16.278878 s
+
+Online: 3.501660 s
+
+Offline: 12.777218 s
+
+Partitioning and exchanging counts took 2.402481 s (14.76% of total execution time)
+
+Non-oblivious sort took 1.063339 s (30.37% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.035841 s (1.02% of online execution time)
+
+Sorting took 1.784286 s
+
+Padding took 8.747531 s
+
+OShuffle took 2.165608 s (13.30% of total execution time)

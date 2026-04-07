@@ -1,0 +1,106 @@
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/real/imdb/imdb.txt
+Threads: 32
+
+Radix bits: 10, Passes: 2
+Bins: 32
+
+Join completed in 8.057778 s
+
+Online: 1.415989 s
+
+Offline: 6.641788 s
+
+Partitioning and exchanging counts took 1.000886 s (12.42% of total execution time)
+
+Non-oblivious sort took 0.396948 s (28.03% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.018155 s (1.28% of online execution time)
+
+Sorting took 0.735057 s
+
+Padding took 4.590373 s
+
+OShuffle took 1.274013 s (15.81% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/real/imdb/imdb.txt
+Threads: 32
+
+Radix bits: 10, Passes: 2
+Bins: 32
+
+Join completed in 8.143175 s
+
+Online: 1.356547 s
+
+Offline: 6.786628 s
+
+Partitioning and exchanging counts took 0.922368 s (11.33% of total execution time)
+
+Non-oblivious sort took 0.415576 s (30.63% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.018603 s (1.37% of online execution time)
+
+Sorting took 0.778010 s
+
+Padding took 4.603404 s
+
+OShuffle took 1.360437 s (16.71% of total execution time)
+[INFO] Set BINS_PER_PART / NUM_RADIX_BITS / NUM_PASSES in the top-level CMakeLists.txt (or via -D... at CMake configure time).
+[INFO] R: Primary Key table; S: Foreign Key table
+Input: /root/obl-radix/datasets/real/imdb/imdb.txt
+Threads: 32
+
+Radix bits: 10, Passes: 2
+Bins: 32
+
+Join completed in 7.818471 s
+
+Online: 1.304036 s
+
+Offline: 6.514435 s
+
+Partitioning and exchanging counts took 0.882863 s (11.29% of total execution time)
+
+Non-oblivious sort took 0.401969 s (30.83% of online execution time)
+
+Backfill dummies, Prefix calculation, and Dist & Expand took 0.019203 s (1.47% of online execution time)
+
+Sorting took 0.752422 s
+
+Padding took 4.520387 s
+
+OShuffle took 1.198286 s (15.33% of total execution time)
+
+Threads: 32
+Input file: /root/obl-radix/datasets/real/imdb/imdb.txt
+Created 31 worker threads
+Table 1: 10950394 records, Table 2: 23991306 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 1.595138 seconds
+length_result: 23991306
+Threads: 32
+Input file: /root/obl-radix/datasets/real/imdb/imdb.txt
+Created 31 worker threads
+Table 1: 10950394 records, Table 2: 23991306 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 1.588316 seconds
+length_result: 23991306
+Threads: 32
+Input file: /root/obl-radix/datasets/real/imdb/imdb.txt
+Created 31 worker threads
+Table 1: 10950394 records, Table 2: 23991306 records
+
+Using limited output buffer size: 1073741824 bytes.
+Adjust the buffer size based on your workload, esp if you're encountering seg faults.
+
+Execution time: 1.610157 seconds
+length_result: 23991306
