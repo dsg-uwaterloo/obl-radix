@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
   S.tuples = new row_t[t1.size()];
   std::memcpy(S.tuples, t1.data(), t1.size() * sizeof(Record));
   S.num_tuples = static_cast<uint32_t>(t1.size());
-  const uint32_t originalRSize = R.num_tuples;
+  // const uint32_t originalRSize = R.num_tuples;
   const uint32_t originalSSize = S.num_tuples;
 
   t0.clear();
@@ -195,7 +195,7 @@ int main(int argc, char *argv[]) {
     tbl.num_tuples = target;
   };
 
-  std::uint32_t m;
+  // std::uint32_t m;
 
   printf("\nRadix bits: %u, Passes: %u\n", NUM_RADIX_BITS, NUM_PASSES);
   const std::uint32_t bins = BINS_PER_PART;
@@ -259,7 +259,7 @@ int main(int argc, char *argv[]) {
   std::chrono::high_resolution_clock::time_point tShuffleStart =
       std::chrono::high_resolution_clock::now();
   shuffleTable(R, numThreads);
-  assign_indices_parallel(R, numThreads);
+  // assign_indices_parallel(R, numThreads);
   shuffleTable(S, numThreads);
   assign_indices_parallel(S, numThreads);
   std::chrono::high_resolution_clock::time_point tShuffleEnd =
@@ -296,10 +296,10 @@ int main(int argc, char *argv[]) {
   // });
   // std::thread processS([&] {
   backfillDummiesParallel(S, slices_S_numThreads);
-  auto selected = std::make_unique<bool[]>(S.num_tuples);
-  m = prefixSumExpandParallel(S, slices_S_numThreads, selected.get(),
-                              PrefixSumExpandMode::MatchFlag);
-  obli_compact_rows(S.tuples, selected.get(), S.num_tuples, numThreads);
+  // auto selected = std::make_unique<bool[]>(S.num_tuples);
+  // m = prefixSumExpandParallel(S, slices_S_numThreads, selected.get(),
+  //                             PrefixSumExpandMode::MatchFlag);
+  // obli_compact_rows(S.tuples, selected.get(), S.num_tuples, numThreads);
   // padTableToSize(S, m);
   // obli_distribute_rows(S.tuples, m, numThreads / 2);
   // carryForwardParallel(S, buildSlices(m, numThreads / 2));
@@ -369,14 +369,14 @@ int main(int argc, char *argv[]) {
   printf("\nOShuffle took %f s (%.2f%% of total execution time)\n", shuffleSec,
          (shuffleSec * 100.0 / sec));
 
-  {
-    std::ofstream outER("join.txt");
-    for (int i = 0; i < m; i++) {
-      outER << S.tuples[i].key << ' ' << S.tuples[i].payPrimary << ' '
-            << S.tuples[i].key << ' ' << S.tuples[i].paySelf << '\n';
-    }
-  }
-  printf("Join result rows: %d (written to join.txt)\n", m);
+  // {
+  //   std::ofstream outER("join.txt");
+  //   for (int i = 0; i < S.num_tuples; i++) {
+  //     outER << S.tuples[i].key << ' ' << S.tuples[i].payPrimary << ' '
+  //           << S.tuples[i].key << ' ' << S.tuples[i].paySelf << '\n';
+  //   }
+  // }
+  // printf("Join result rows: %ld (written to join.txt)\n", S.num_tuples);
 
   return 0;
 }
