@@ -1,5 +1,7 @@
 # Based on https://zenodo.org/records/15169905
 
+movie_id = set()
+
 f3 = open("title.basics.tsv", "r")
 f4 = open("imdb_title.txt", "w")
 d = f3.readlines()
@@ -8,8 +10,9 @@ for i in range(1, len(d)):
     if (lst[5][0] != '1') and (lst[5][0] != '2'):
         continue
     year = int(lst[5])
-    #movie_id[int(lst[0][2:])] = True
-    f4.write(str(int(lst[0][2:]))+" "+str(year)+"\n")
+    tid = int(lst[0][2:])
+    movie_id.add(tid)
+    f4.write(str(tid)+" "+str(year)+"\n")
 f3.close()
 f4.close()
 
@@ -25,8 +28,8 @@ for i in range(1, len(d)):
     lst2 = lst[-1].split(',')
     lst2[-1] = lst2[-1][:-1]
     for o in range(len(lst2)):
-        #if (int(lst2[o][2:]) < len(movie_id)):
-            #if (movie_id[int(lst2[o][2:])]):
-                f2.write(str(int(lst2[o][2:]))+" "+str(int(lst[0][2:]))+"\n")
+        tid = int(lst2[o][2:])
+        if tid in movie_id:
+            f2.write(str(tid)+" "+str(int(lst[0][2:]))+"\n")
 f1.close()
 f2.close()

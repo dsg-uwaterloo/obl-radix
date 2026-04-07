@@ -31,7 +31,7 @@ int main() {
 
 	ofstream file1n2_1("twitter_1n2_1.txt"); // ID follows popular
 	ofstream file1_2("twitter_1_2.txt"); // Inactive ID
-	ofstream file2_1("twitter_2_1.txt");
+	// ofstream file2_1("twitter_2_1.txt");
 	ofstream file2_2("twitter_2_2.txt"); // Normal ID
 	ofstream file3_1("twitter_3_1.txt"); // ID follows normal
 	ofstream file3_2("twitter_3_2.txt"); // Popular ID
