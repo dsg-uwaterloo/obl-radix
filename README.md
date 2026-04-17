@@ -1,27 +1,11 @@
 ## Repository Structure
 
-- **`baselines/obliviatorFK-TDX/`** - Obliviator's foreign-key join ported to run outside SGX
-- **`baselines/obliviatorNFK-TDX/`** - Obliviator's non-foreign key join ported to run outside SGX
-- **`OnOff-FK/`** - Our radix partitioning-based join for foreign key relationships
-- **`OnOff-NFK/`** - Our radix partitioning-based join for non-foreign key relationships
-
+- **`OnOff-FK/`** - Radix partitioning-based join for foreign key relationships
+- **`OnOff-NFK/`** - Radix partitioning-based join for non-foreign key relationships
+- **`baselines/obliviatorFK-TDX/`** - Obliviator foreign-key join 
+- **`baselines/obliviatorNFK-TDX/`** - Obliviator non-foreign key join 
 
 ## Build Instructions
-
-### Building Baseline Implementations
-
-For both `obliviatorNFK-TDX` and `obliviatorFK-TDX`:
-
-```bash
-cd baselines/obliviatorNFK-TDX  # or baselines/obliviatorFK-TDX
-make -f Makefile.standalone clean
-make -f Makefile.standalone
-```
-
-This builds the `standalone_join` executable that can be run with the following command:
-```bash
-./standalone_join <num_threads> <input_file>
-```
 
 ### Building Radix Partitioning-based Implementations
 
@@ -59,6 +43,21 @@ This builds the `OblRadix` executable that can be run with the following command
   - `CACHE_LINE_SIZE` (default: 64)
   - `L1_CACHE_SIZE` (default: 49152) 
   - `L1_ASSOCIATIVITY` (default: 12)
+ 
+### Building Baseline Implementations
+
+For both `obliviatorNFK-TDX` and `obliviatorFK-TDX`:
+
+```bash
+cd baselines/obliviatorNFK-TDX  # or baselines/obliviatorFK-TDX
+make -f Makefile.standalone clean
+make -f Makefile.standalone
+```
+
+This builds the `standalone_join` executable that can be run with the following command:
+```bash
+./standalone_join <num_threads> <input_file>
+```
 
 ## Testing and Validation
 
