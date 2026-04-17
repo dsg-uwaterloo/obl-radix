@@ -83,7 +83,7 @@ The repository includes several datasets for evaluation:
 
 - **`datasets/TPC-H/`**: Scripts to generate TPC-H based join workloads
 
-- **`datasets/create_synthetic_data.py`**: Script to generate synthetic datasets
+- **`datasets/synthetic/`**: Script to generate synthetic datasets
 
 ### Input Format Requirements
 
