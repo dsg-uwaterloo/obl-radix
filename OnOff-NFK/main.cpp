@@ -316,47 +316,40 @@ int main(int argc, char *argv[]) {
   std::vector<JoinRec> joinResults;
   mergeExpandedParallel(R, S, numThreads, joinResults);
 
-  double sec =
-      std::chrono::duration_cast<std::chrono::duration<double>>(tEnd - tStart)
-          .count();
-  printf("\nJoin completed in %f s\n", sec);
-
   double onSec =
       std::chrono::duration_cast<std::chrono::duration<double>>(tEnd - onStart)
           .count();
   printf("\nOnline: %f s\n", onSec);
-  printf("\nOffline: %f s\n", sec - onSec);
 
+#ifndef ONLINE_ONLY
   double exchangeSec =
       std::chrono::duration_cast<std::chrono::duration<double>>(exchangeEnd -
                                                                 onStart)
           .count();
-  printf("\nPartitioning and exchanging counts took %f s (%.2f%% of total "
-         "execution time)\n",
-         exchangeSec, (exchangeSec * 100.0 / sec));
+  printf("\nPartitioning and exchanging counts took %f s\n", exchangeSec);
 
   double nonOblSortSec =
       std::chrono::duration_cast<std::chrono::duration<double>>(nonOblSortEnd -
                                                                 exchangeEnd)
           .count();
-  printf("\nNon-oblivious sort took %f s (%.2f%% of online "
-         "execution time)\n",
-         nonOblSortSec, (nonOblSortSec * 100.0 / onSec));
+  printf("\nNon-oblivious sort took %f s\n", nonOblSortSec);
 
   double distSec = std::chrono::duration_cast<std::chrono::duration<double>>(
                        distEnd - nonOblSortEnd)
                        .count();
-  printf("\nBackfill dummies, Prefix calculation, and Dist & Expand took %f s "
-         "(%.2f%% of online "
-         "execution time)\n",
-         distSec, (distSec * 100.0 / onSec));
+  printf(
+      "\nBackfill dummies, Prefix calculation, and Dist & Expand took %f s\n",
+      distSec);
 
   double alignSec = std::chrono::duration_cast<std::chrono::duration<double>>(
                         alignEnd - distEnd)
                         .count();
-  printf("\nAlignment took %f s (%.2f%% of online "
-         "execution time)\n",
-         alignSec, (alignSec * 100.0 / onSec));
+  printf("\nAlignment took %f s\n", alignSec);
+
+  double sec =
+      std::chrono::duration_cast<std::chrono::duration<double>>(tEnd - tStart)
+          .count();
+  printf("\nOffline: %f s\n", sec - onSec);
 
 #ifndef PRE_SORTED
   double sortSec = std::chrono::duration_cast<std::chrono::duration<double>>(
@@ -373,8 +366,8 @@ int main(int argc, char *argv[]) {
   double shuffleSec = std::chrono::duration_cast<std::chrono::duration<double>>(
                           tShuffleEnd - tShuffleStart)
                           .count();
-  printf("\nOShuffle took %f s (%.2f%% of total execution time)\n", shuffleSec,
-         (shuffleSec * 100.0 / sec));
+  printf("\nOShuffle took %f s\n", shuffleSec);
+#endif
 
   {
     std::ofstream outER("join.txt");
@@ -382,7 +375,7 @@ int main(int argc, char *argv[]) {
       outER << j.keyR << ' ' << j.payR << ' ' << j.keyS << ' ' << j.payS
             << '\n';
   }
-  printf("Join result rows: %d (written to join.txt)\n", m);
+  printf("\nJoin result rows: %d (written to join.txt)\n", m);
 
   return 0;
 }

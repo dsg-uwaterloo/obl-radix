@@ -19,7 +19,7 @@ find_package(OpenMP REQUIRED)
 set(BINS_PER_PART 32 CACHE STRING "Number of bins per partition")
 set(NUM_RADIX_BITS 10 CACHE STRING "Radix bits per pass")
 set(NUM_PASSES 2 CACHE STRING "Number of radix passes")
-option(ENABLE_AVX2_GATHER_JOIN "Enable AVX2 gather path radix_partition" ON)
+option(ONLINE_ONLY "Build in ONLINE-only mode (suppress offline timing breakdown)" OFF)
 
 # ------------------------------------------------------------------------------
 # External implementations
@@ -49,15 +49,14 @@ target_sources(OblRadix PRIVATE
 
 target_compile_options(OblRadix PRIVATE -pthread)
 target_compile_definitions(OblRadix PRIVATE BINS_PER_PART=${BINS_PER_PART})
+if (ONLINE_ONLY)
+  target_compile_definitions(OblRadix PRIVATE ONLINE_ONLY)
+endif()
 
 # Set radix fan-out
 target_compile_definitions(radix_partition PUBLIC 
     NUM_RADIX_BITS=${NUM_RADIX_BITS}
     NUM_PASSES=${NUM_PASSES})
-
-if (ENABLE_AVX2_GATHER_JOIN)
-  target_compile_definitions(radix_partition PUBLIC)
-endif()
 
 # Link against all required libraries
 target_link_libraries(OblRadix PRIVATE 
