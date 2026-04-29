@@ -19,7 +19,7 @@ find_package(OpenMP REQUIRED)
 set(BINS_PER_PART 32 CACHE STRING "Number of bins per partition")
 set(NUM_RADIX_BITS 10 CACHE STRING "Radix bits per pass")
 set(NUM_PASSES 2 CACHE STRING "Number of radix passes")
-option(ONLINE_ONLY "Build in ONLINE-only mode (suppress offline timing breakdown)" OFF)
+option(ONLINE_ONLY "Build in ONLINE-only mode (suppress offline timing breakdown)" ON)
 
 # ------------------------------------------------------------------------------
 # External implementations
