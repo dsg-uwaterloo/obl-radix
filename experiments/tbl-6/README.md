@@ -12,7 +12,6 @@ bash download.sh
 python3 imdb_process_1.py
 python3 imdb_process_2.py
 ```
-
 Use: `datasets/real/imdb/imdb.txt`
 
 ### TPC-H (sf 10 / sf 100)
@@ -54,8 +53,6 @@ for trial in 1 2 3; do ./OblRadix 32 "$TPCH_SF10_PATH"; done
 for trial in 1 2 3; do ./OblRadix 32 "$TPCH_SF100_PATH"; done
 ```
 
-Record the `Online: ...` time printed by `OblRadix`.
-
 ## OBL-TDX 
 
 Build:
@@ -75,5 +72,3 @@ for trial in 1 2 3; do ./standalone_join 32 ../../datasets/real/imdb/imdb.txt; d
 for trial in 1 2 3; do ./standalone_join 32 "$TPCH_SF10_PATH"; done
 for trial in 1 2 3; do ./standalone_join 32 "$TPCH_SF100_PATH"; done
 ```
-
-Record the `Execution time: ... seconds` line printed by `standalone_join`.
