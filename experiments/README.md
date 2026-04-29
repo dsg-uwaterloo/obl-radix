@@ -16,4 +16,4 @@ Any dataset can be sorted by key using `sort_tables.py` (`OnOff-NFK/sort_tables.
 
 Each subdirectory corresponds to a figure/table/appendix item in the paper and contain the exact command lines needed for reproducibility.
 
-For the radix partitioning-based implementations (`OnOff-NFK` / `OnOff-FK`), use `BINS_PER_PART`, `NUM_RADIX_BITS`, and `NUM_PASSES` values that are optimal for your hardware and workloads when running the provided command lines.
+For the radix partitioning-based implementations (`OnOff-NFK` / `OnOff-FK`), use radix and cache parameters that are optimal for your hardware and workloads. See [Build Instructions](../README.md#build-instructions) for details.
