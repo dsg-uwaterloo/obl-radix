@@ -21,8 +21,11 @@ cmake .. \
   -DONLINE_ONLY=<ON|OFF>
 make -j$(nproc)
 ```
-- `BINS_PER_PART`: Number of bins per partition  
-- `NUM_RADIX_BITS`: Number of radix bits (total partitions = 2^NUM_RADIX_BITS)  
+- `BINS_PER_PART`: Number of bins per partition
+  - Bin bits = log2(BINS_PER_PART)
+- `NUM_RADIX_BITS`: Number of radix bits
+  - Total partitions = 2^NUM_RADIX_BITS
+  - Total bins = BINS_PER_PART * (2^NUM_RADIX_BITS)
 - `NUM_PASSES`: Number of radix partitioning passes
 
 This builds the `OblRadix` executable that can be run with the following command:
