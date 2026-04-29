@@ -1,4 +1,4 @@
-# Thread scaling on real-world dataset (Twitter-2)
+# Thread scaling on real-world dataset
 
 ## Dataset
 
