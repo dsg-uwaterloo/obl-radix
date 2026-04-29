@@ -8,9 +8,9 @@
 - Twitter-1: prepare via `datasets/real/twitter/` scripts, then set `TWITTER_1_PATH` to the respective produced join input file
 - Twitter-2: prepare via `datasets/real/twitter/` scripts, then set `TWITTER_2_PATH` to the respective produced join input file
 
-## OblRadix (OnOff-NFK)
+## Radix
 
-Build (tune `BINS_PER_PART` / `NUM_RADIX_BITS` / `NUM_PASSES` for your machine/):
+Build (tune `BINS_PER_PART` / `NUM_RADIX_BITS` / `NUM_PASSES` for your machine):
 
 ```bash
 cd OnOff-NFK
@@ -30,7 +30,7 @@ for trial in 1 2 3; do ./OblRadix 32 "$TWITTER_1_PATH"; done
 for trial in 1 2 3; do ./OblRadix 32 "$TWITTER_2_PATH"; done
 ```
 
-## OBL-TDX (Obliviator baseline, NFK)
+## OBL-TDX
 
 Build:
 
@@ -58,7 +58,7 @@ For KKS-TDX, we used the optimized version from Obliviator’s artifacts, and ra
 - Amazon
 - Slashdot
 
-Build and run (from `join_kks` in Obliviator's artifacts):
+Build and run (from `join_kks` in Obliviator's artifacts available at `https://zenodo.org/records/17299489`):
 
 ```bash
 make prototype
