@@ -53,7 +53,7 @@ for trial in 1 2 3; do ./standalone_join 32 "$TWITTER_2_PATH"; done
 
 ## KKS-TDX
 
-For KKS-TDX, we used the optimized version from Obliviator’s artifacts, and ran it **3 times** on:
+For KKS-TDX, we used the optimized version from Obliviator’s artifacts, and ran it 3 times on:
 - Jokes
 - Amazon
 - Slashdot
