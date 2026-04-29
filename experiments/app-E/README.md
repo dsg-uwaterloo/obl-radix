@@ -9,7 +9,7 @@ Use the built-in 0.05x TPC-H tables under `source-code/data/tpch/`.
 Build:
 
 ```bash
-cd ORAMJoin/source-code
+cd source-code
 make clean && make
 ```
 
