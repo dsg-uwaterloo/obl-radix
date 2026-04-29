@@ -18,7 +18,7 @@ def rand_divisor(input_value):
         if input_value % factor == 0:
             return factor, floor(input_value // factor)
             
-power_list = [26, 28, 30]
+power_list = [26]
 data_max = 100
 
 for i in power_list:

@@ -2,7 +2,7 @@
 import random
 import os
 
-power_list = [26, 28, 30]
+power_list = [26]
 data_max = 100
 
 for i in power_list:
