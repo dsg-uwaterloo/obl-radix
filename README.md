@@ -17,7 +17,8 @@ mkdir build && cd build
 cmake .. \
   -DBINS_PER_PART=<BINS_PER_PART> \
   -DNUM_RADIX_BITS=<NUM_RADIX_BITS> \
-  -DNUM_PASSES=<NUM_PASSES>
+  -DNUM_PASSES=<NUM_PASSES> \
+  -DONLINE_ONLY=<ON|OFF>
 make -j$(nproc)
 ```
 - `BINS_PER_PART`: Number of bins per partition  
@@ -83,7 +84,7 @@ The repository includes several datasets for evaluation:
 
 - **`datasets/TPC-H/`**: Scripts to generate TPC-H based join workloads
 
-- **`datasets/synthetic/`**: Script to generate synthetic datasets
+- **`datasets/synthetic/`**: Scripts to generate synthetic datasets
 
 ### Input Format Requirements
 
@@ -110,3 +111,7 @@ Both radix-paritioning based implementations include a `sort_tables.py` script t
 cd OnOff-NFK  # or OnOff-FK
 python3 sort_tables.py <input_file> <output_file>
 ```
+
+## Experiments
+
+Instructions to reproduce the paper's experimental evaluation are provided in `experiments/`.
