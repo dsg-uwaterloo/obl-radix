@@ -2,7 +2,7 @@
 
 - **`OnOff-FK/`** - Radix partitioning-based join for foreign key relationships
 - **`OnOff-NFK/`** - Radix partitioning-based join for non-foreign key relationships
-- **`baselines/obliviatorFK-TDX/`** - Obliviator foreign-key join 
+- **`baselines/obliviatorFK-TDX/`** - Obliviator foreign key join 
 - **`baselines/obliviatorNFK-TDX/`** - Obliviator non-foreign key join 
 
 ## Build Instructions
