@@ -1,6 +1,6 @@
 # Key-distribution sensitivity
 
-Table 7 reports execution time across key distributions on a synthetic dataset with **N = 2^25**. That corresponds to generating files with `2power_26` (each table has `2^(26-1)=2^25` rows).
+Table 7 reports execution time across key distributions on a synthetic dataset with **N = 2^25**. In the synthetic data creation scripts, that corresponds to generating files with `2power_26` (each table has `2^(26-1)=2^25` rows).
 
 ## Datasets (synthetic)
 
